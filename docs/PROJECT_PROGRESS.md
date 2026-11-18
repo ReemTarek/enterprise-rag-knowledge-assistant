@@ -1,7 +1,7 @@
 # Project Progress
 
 ## Current phase
-Phase 1: Foundation - implementation complete on branch `phase-1-foundation`, pending whole-branch review. NOT merged to main. Runtime verification is incomplete (see "Failing tests / outstanding validation").
+Phase 1: Foundation - implementation complete and verified (tests + end-to-end) on branch `phase-1-foundation`, pending whole-branch review. NOT merged to main.
 
 ## Completed milestones (branch phase-1-foundation, from main @ f3df10c)
 - f3df10c Baseline: superpowers skills, design spec, Phase 1 plan
@@ -17,16 +17,11 @@ Phase 1: Foundation - implementation complete on branch `phase-1-foundation`, pe
 - Task 10: this verification and progress update
 
 ## Status
-Code for all Phase 1 tasks is committed and each task passed its per-task review. Final verification run (2026-11-18, Release):
-- `dotnet build EnterpriseRag.sln -c Release` (also `--no-incremental`): 0 warnings, 0 errors.
-- `dotnet test EnterpriseRag.sln -c Release`: could NOT be confirmed. Windows Application Control / Smart App Control blocked freshly built unsigned DLLs (0x800711C7, "An Application Control policy has blocked this file"). Result was the same across 4 runs, including after a full rebuild:
-  - Domain.Tests: 3/3 passed in the first run only; blocked (FileLoadException) in later runs
-  - Application.Tests: 0/13 passed (13 failed, FileLoadException on EnterpriseRag.Shared.dll)
-  - Infrastructure.Tests: not run (FileLoadException on EnterpriseRag.Application.dll)
-  - Architecture.Tests: 0/28 passed (all failed, FileLoadException on EnterpriseRag.Application.dll)
-  - API.IntegrationTests: not run (FileLoadException on EnterpriseRag.API.dll)
-  These are environment failures, not assertion failures. Earlier per-task reviews recorded these projects green (e.g. Architecture 28/28 and Domain 3/3 at fcb1522). No passing counts are claimed for this final run beyond the above.
-- End-to-end (compose SQL Server, `dotnet ef database update`, API `/health/live` and `/health/ready`): the SQL Server container became healthy; `dotnet ef` built but failed to create AppDbContext (Application Control blocked Application.dll); the API failed to start (blocked API.dll), so no health status codes were obtained. Containers and volumes removed; the throwaway `.env` was deleted. No OS security feature was disabled.
+Code for all Phase 1 tasks is committed and each task passed its per-task review. Final verification (2026-11-18, Release, after the user turned off Smart App Control):
+- `dotnet build EnterpriseRag.sln -c Release`: 0 warnings, 0 errors.
+- `dotnet test EnterpriseRag.sln -c Release`: all pass - Domain 3/3, Application 13/13, Architecture 28/28, Infrastructure 5/5, API.IntegrationTests 18/18 (67 tests, 0 failures).
+- End-to-end against the Compose SQL Server (`mssql/server:2022-CU14`): container healthy; `dotnet ef database update --configuration Release --startup-project src/EnterpriseRag.Infrastructure --project src/EnterpriseRag.Infrastructure` applied `InitialCreate`; API in Release: DB up -> `/health/live` 200 and `/health/ready` 200 (Healthy); DB stopped -> `/health/live` 200 and `/health/ready` 503 (Unhealthy). Response bodies list names/status only. The failing readiness probe took ~15 s because the check has no explicit timeout. Containers/volumes removed; throwaway `.env` deleted.
+- Earlier, Windows Smart App Control (0x800711C7) blocked freshly built unsigned DLLs, which prevented verification until the user disabled it (it can only be re-enabled by reinstalling Windows).
 
 ## Decisions
 - ADR 0001 Onion architecture
@@ -48,14 +43,13 @@ Code for all Phase 1 tasks is committed and each task passed its per-task review
 
 ## Pending work
 - Phase 1 whole-branch code review, then merge decision.
-- Re-run the full test suite and the end-to-end check where Application Control does not block built DLLs.
 - Phase 2 plan.
 
 ## Known issues
 Environment:
-- Windows Smart App Control / Application Control blocks freshly built unsigned DLLs (0x800711C7), intermittently in earlier tasks and consistently in this Release verification.
+- (Resolved) Smart App Control blocked freshly built unsigned DLLs (0x800711C7); disabled by the user. Some package versions are pinned lower because of it (see Decisions) and could be bumped.
 - CI has not yet run on GitHub; SDK 11.0.100 resolution via setup-dotnet is unverified; ci.yml YAML unparsed.
-- docs/INFRASTRUCTURE.md `dotnet ef database update` command unverified end to end (arguments were accepted, DbContext creation was blocked); consider adding `--configuration Release`; doc shows the password inline in example commands.
+- docs/INFRASTRUCTURE.md `dotnet ef database update` command verified working with `--configuration Release --startup-project src/EnterpriseRag.Infrastructure --project src/EnterpriseRag.Infrastructure` (the doc should be updated to include `--configuration Release`); doc shows the password inline in example commands.
 
 Deferred minor findings by task:
 - Task 2: .sln NestedProjects wrong (API/Infrastructure nested under tests; Worker, Infrastructure.Tests, Architecture.Tests at root); empty PropertyGroups in csproj.
@@ -68,10 +62,9 @@ Deferred minor findings by task:
 - Task 9: ci.yml has no timeout-minutes/concurrency; push + pull_request double runs; bare `dotnet restore/test` relies on a single .sln (use explicit path).
 
 ## Failing tests/outstanding validation
-- Final Release test run could not be confirmed due to Application Control blocking (see Status). The failures observed (Application.Tests 13, Architecture.Tests 28, plus unrun Infrastructure/API test projects) are FileLoadException environment failures, not assertion failures.
-- End-to-end migration + health check not completed (blocked, see Status).
+- None failing. Not yet validated: CI on GitHub (first run happens when pushed; SDK 11.0.100 resolution via setup-dotnet unverified).
 - Embedding model choice (bge-m3 / multilingual) to verify in Phase 4.
 
 ## Next task
-1. Phase 1 whole-branch review (and re-verification of tests and e2e where DLLs load).
+1. Phase 1 whole-branch review, then merge decision.
 2. Phase 2 plan: Identity and Knowledge Bases (seeded admin + admin-created users, KB sharing, Angular + RTL i18n ar/en/de setup).
