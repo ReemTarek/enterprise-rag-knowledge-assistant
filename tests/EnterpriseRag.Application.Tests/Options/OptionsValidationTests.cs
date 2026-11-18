@@ -128,3 +128,38 @@ public class OptionsValidationTests
         await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
     }
 }
+
+public class AiOptionsNestedValidationTests
+{
+    private static ServiceProvider Build(string? baseUrl, string? dims)
+    {
+        var values = new Dictionary<string, string?>();
+        if (baseUrl is not null) values["AI:Ollama:BaseUrl"] = baseUrl;
+        if (dims is not null) values["AI:Ollama:EmbeddingDimensions"] = dims;
+        IConfiguration config = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var services = new ServiceCollection();
+        services.AddValidatedOptions<AiOptions>(config, "AI");
+        return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public void AiOptions_UnsetEmbeddingDimensions_FailsValidation()
+    {
+        using var sp = Build(null, null);
+        Assert.Throws<OptionsValidationException>(() => sp.GetRequiredService<IOptions<AiOptions>>().Value);
+    }
+
+    [Fact]
+    public void AiOptions_FtpOllamaBaseUrl_FailsValidation()
+    {
+        using var sp = Build("ftp://x", "768");
+        Assert.Throws<OptionsValidationException>(() => sp.GetRequiredService<IOptions<AiOptions>>().Value);
+    }
+
+    [Fact]
+    public void AiOptions_ValidNested_Resolves()
+    {
+        using var sp = Build(null, "768");
+        Assert.Equal(768, sp.GetRequiredService<IOptions<AiOptions>>().Value.Ollama.EmbeddingDimensions);
+    }
+}
