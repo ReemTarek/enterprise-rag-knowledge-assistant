@@ -5,6 +5,7 @@ using EnterpriseRag.Shared.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 
 namespace EnterpriseRag.Infrastructure;
@@ -26,6 +27,9 @@ public static class DependencyInjection
                     sp.GetRequiredService<AuditableEntityInterceptor>(),
                     sp.GetRequiredService<AuditLogAppendOnlyInterceptor>());
         });
+
+        services.AddHealthChecks()
+            .AddDbContextCheck<AppDbContext>("sqlserver", failureStatus: HealthStatus.Unhealthy, tags: ["ready"], customTestQuery: null);
 
         return services;
     }

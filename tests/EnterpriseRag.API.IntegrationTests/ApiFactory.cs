@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EnterpriseRag.API.IntegrationTests;
 
-public sealed class ApiFactory(string environment = "Production") : WebApplicationFactory<Program>
+public sealed class ApiFactory(string environment = "Production", string? connectionString = null) : WebApplicationFactory<Program>
 {
     public const string FakeConnectionString =
         "Server=localhost,1;Database=Fake;User Id=x;Password=x;TrustServerCertificate=True";
@@ -20,7 +20,7 @@ public sealed class ApiFactory(string environment = "Production") : WebApplicati
         builder.ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:ConnectionString"] = FakeConnectionString,
+                ["Database:ConnectionString"] = connectionString ?? FakeConnectionString,
             }));
         builder.ConfigureServices(services =>
             services.AddTransient<IStartupFilter, TestEndpointsFilter>());

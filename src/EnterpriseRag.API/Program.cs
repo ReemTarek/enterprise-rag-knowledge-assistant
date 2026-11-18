@@ -1,3 +1,4 @@
+using EnterpriseRag.API.Health;
 using EnterpriseRag.API.Middleware;
 using EnterpriseRag.API.Services;
 using EnterpriseRag.Application.Abstractions;
@@ -31,6 +32,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddValidatedOptions<AiOptions>(builder.Configuration, "Ai");
 builder.Services.AddValidatedOptions<RagOptions>(builder.Configuration, "Rag");
 
+builder.Services.AddApiHealthChecks();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
@@ -53,6 +55,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapGet("/", () => "EnterpriseRag API");
+app.MapHealthEndpoints();
 
 app.Run();
 
