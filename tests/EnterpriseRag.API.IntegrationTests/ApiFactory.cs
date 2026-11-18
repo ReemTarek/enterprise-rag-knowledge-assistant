@@ -52,3 +52,12 @@ public sealed class TestEndpointsController : ControllerBase
     [HttpGet("domain")]
     public IActionResult Domain() => throw new DomainException("Name is required");
 }
+
+/// <summary>Stand-in for Task 5's admin endpoints: guarded by the real <c>AdminOnly</c> policy.</summary>
+[Route("test")]
+public sealed class TestAdminEndpointsController : ControllerBase
+{
+    [Authorize(Policy = EnterpriseRag.API.Auth.AuthenticationSetup.AdminOnlyPolicy)]
+    [HttpGet("admin-only")]
+    public IActionResult AdminOnly() => Ok();
+}

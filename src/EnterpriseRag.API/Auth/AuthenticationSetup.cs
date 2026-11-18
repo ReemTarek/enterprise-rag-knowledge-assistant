@@ -58,11 +58,14 @@ public static class AuthenticationSetup
                     OnTokenValidated = async context =>
                     {
                         var subject = context.Principal?.FindFirst(SubjectClaim)?.Value;
+                        var roles = context.Principal?.FindAll(RoleClaim).Select(c => c.Value).ToList() ?? [];
                         var check = context.HttpContext.RequestServices.GetRequiredService<ActiveUserCheck>();
+                        // Fail closed: exactly one role claim, and it must match the stored role.
                         if (!Guid.TryParse(subject, out var userId)
-                            || !await check.IsActiveAsync(userId, context.HttpContext.RequestAborted))
+                            || roles.Count != 1
+                            || !await check.IsValidAsync(userId, roles[0], context.HttpContext.RequestAborted))
                         {
-                            context.Fail("The user is unknown, inactive or deleted.");
+                            context.Fail("The user is unknown, inactive, deleted or no longer holds the token's role.");
                         }
                     },
                     OnChallenge = async context =>

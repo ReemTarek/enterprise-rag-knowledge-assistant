@@ -179,6 +179,102 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, refresh.Response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("none")]
+    [InlineData("garbage")]
+    [InlineData("expired")]
+    public async Task Logout_IsAnonymous_CookieIsTheCredential(string accessTokenKind)
+    {
+        var (userId, email) = await NewUserAsync();
+        var login = await AuthHttp.LoginAsync(_client, email, Password);
+        var accessToken = accessTokenKind switch
+        {
+            "garbage" => "not-a-jwt",
+            "expired" => AuthorizationDefaultsTests.Mint(userId, ApiFactory.TestSigningKey, ApiFactory.TestIssuer,
+                ApiFactory.TestIssuer, DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddMinutes(-20)),
+            _ => null,
+        };
+
+        var logout = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/logout", accessToken, login.RefreshToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
+        AssertClearedCookie(logout);
+        var active = await ApiDatabaseFixture.WithDbAsync(_factory, d =>
+            d.RefreshTokens.CountAsync(t => t.UserId == userId && t.RevokedAt == null));
+        Assert.Equal(0, active);
+    }
+
+    [Fact]
+    public async Task Logout_WithoutCookie_Succeeds_AndRevokesNothing()
+    {
+        var (userId, email) = await NewUserAsync();
+        await AuthHttp.LoginAsync(_client, email, Password);
+
+        var logout = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/logout");
+
+        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
+        AssertClearedCookie(logout);
+        var active = await ApiDatabaseFixture.WithDbAsync(_factory, d =>
+            d.RefreshTokens.CountAsync(t => t.UserId == userId && t.RevokedAt == null));
+        Assert.Equal(1, active);
+    }
+
+    [Fact]
+    public async Task Logout_IsRateLimited_LikeRefresh()
+    {
+        for (var i = 0; i < 30; i++)
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/logout")).StatusCode);
+        }
+
+        var limited = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/logout");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithoutCookie_RevokesAllFamilies()
+    {
+        var (userId, email) = await NewUserAsync();
+        var first = await AuthHttp.LoginAsync(_client, email, Password);
+        await AuthHttp.LoginAsync(_client, email, Password);
+
+        var change = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", first.AccessToken,
+            body: new { currentPassword = Password, newPassword = NewPassword });
+
+        Assert.Equal(HttpStatusCode.NoContent, change.StatusCode);
+        var (total, active) = await ApiDatabaseFixture.WithDbAsync(_factory, async d =>
+            (await d.RefreshTokens.CountAsync(t => t.UserId == userId),
+             await d.RefreshTokens.CountAsync(t => t.UserId == userId && t.RevokedAt == null)));
+        Assert.Equal(2, total);
+        Assert.Equal(0, active);
+    }
+
+    [Fact]
+    public async Task ChangePassword_OldMeRoute_IsGone()
+    {
+        var (_, email) = await NewUserAsync();
+        var login = await AuthHttp.LoginAsync(_client, email, Password);
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/me/password", login.AccessToken,
+            body: new { currentPassword = Password, newPassword = NewPassword });
+
+        Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed, response.StatusCode.ToString());
+    }
+
+    private static void AssertClearedCookie(HttpResponseMessage response)
+    {
+        var cleared = AuthHttp.RefreshSetCookie(response);
+        Assert.NotNull(cleared);
+        Assert.Equal(string.Empty, AuthHttp.CookieValue(cleared));
+        var attributes = AuthHttp.CookieAttributes(cleared!);
+        Assert.Equal("/api/auth", attributes["path"]);
+        Assert.True(attributes.ContainsKey("secure"));
+        Assert.True(attributes.ContainsKey("httponly"));
+        Assert.Equal("strict", attributes["samesite"], ignoreCase: true);
+        Assert.True(DateTime.Parse(attributes["expires"]!, CultureInfo.InvariantCulture) < DateTime.UtcNow);
+    }
+
     [Fact]
     public async Task Me_ReturnsProfile_FromToken()
     {
@@ -205,7 +301,7 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
         var current = await AuthHttp.LoginAsync(_client, email, Password);
         var other = await AuthHttp.LoginAsync(_client, email, Password);
 
-        var change = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/me/password", current.AccessToken, current.RefreshToken,
+        var change = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", current.AccessToken, current.RefreshToken,
             new { currentPassword = Password, newPassword = NewPassword });
 
         Assert.Equal(HttpStatusCode.NoContent, change.StatusCode);
@@ -224,7 +320,7 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
         var (_, email) = await NewUserAsync();
         var login = await AuthHttp.LoginAsync(_client, email, Password);
 
-        var response = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/me/password", login.AccessToken,
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", login.AccessToken,
             body: new { currentPassword = "Not-My-Password-77", newPassword = "weak" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -247,7 +343,7 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
         var (id, email) = await NewUserAsync();
         var login = await AuthHttp.LoginAsync(_client, email, Password);
 
-        var change = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/me/password", login.AccessToken,
+        var change = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", login.AccessToken,
             body: new { currentPassword = Password, newPassword = NewPassword });
         Assert.Equal(HttpStatusCode.NoContent, change.StatusCode);
 

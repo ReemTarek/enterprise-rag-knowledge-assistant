@@ -55,7 +55,8 @@ public static class AuthHttp
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         }
 
-        if (refreshToken is not null)
+        // Behave like a browser: the cookie is scoped to Path=/api/auth, so it is only sent to URLs under it.
+        if (refreshToken is not null && IsUnderCookiePath(url))
         {
             request.Headers.Add("Cookie", $"{CookieName}={refreshToken}");
         }
@@ -66,6 +67,15 @@ public static class AuthHttp
         }
 
         return client.SendAsync(request);
+    }
+
+    public const string CookiePath = "/api/auth";
+
+    /// <summary>RFC 6265 path-match: exactly the path, or below it.</summary>
+    public static bool IsUnderCookiePath(string url)
+    {
+        var path = url.Split('?')[0];
+        return path == CookiePath || path.StartsWith(CookiePath + "/", StringComparison.Ordinal);
     }
 
     public static string? RefreshSetCookie(HttpResponseMessage response) =>

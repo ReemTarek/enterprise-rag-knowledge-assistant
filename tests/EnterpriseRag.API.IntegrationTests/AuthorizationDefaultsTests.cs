@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using EnterpriseRag.API.IntegrationTests.Support;
+using EnterpriseRag.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,8 +44,7 @@ public sealed class AuthorizationDefaultsTests(ApiDatabaseFixture db) : IAsyncLi
 
     [Theory]
     [InlineData("GET", "/api/me")]
-    [InlineData("POST", "/api/me/password")]
-    [InlineData("POST", "/api/auth/logout")]
+    [InlineData("POST", "/api/auth/password")]
     public async Task ProtectedEndpoint_WithoutToken_Returns401(string method, string url)
     {
         var response = await AuthHttp.SendAsync(_client, new HttpMethod(method), url,
@@ -148,16 +148,115 @@ public sealed class AuthorizationDefaultsTests(ApiDatabaseFixture db) : IAsyncLi
         Assert.Contains(fallback.Requirements, r => r is Microsoft.AspNetCore.Authorization.Infrastructure.DenyAnonymousAuthorizationRequirement);
     }
 
-    private static string Mint(Guid userId, string key, string issuer, string audience, DateTime expires, DateTime issuedAt) =>
-        new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = false }.CreateToken(new SecurityTokenDescriptor
+    [Fact]
+    public async Task ProtectedEndpoint_WithHs512Token_Returns401()
+    {
+        // Same secret, different algorithm: only HS256 is accepted.
+        var id = await ApiDatabaseFixture.CreateUserAsync(_factory, ApiDatabaseFixture.UniqueEmail("user"), Password);
+        var now = DateTime.UtcNow;
+        var key = ApiFactory.TestSigningKey + ApiFactory.TestSigningKey; // >= 512 bits so HS512 can sign
+        var token = Mint(id, key, ApiFactory.TestIssuer, ApiFactory.TestIssuer, now.AddMinutes(5), now, SecurityAlgorithms.HmacSha512);
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/me", token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ProtectedEndpoint_WithAlgNoneToken_Returns401()
+    {
+        var id = await ApiDatabaseFixture.CreateUserAsync(_factory, ApiDatabaseFixture.UniqueEmail("user"), Password);
+        var now = DateTimeOffset.UtcNow;
+        static string B64(string json) => Base64UrlEncoder.Encode(json);
+        var token = B64("{\"alg\":\"none\",\"typ\":\"JWT\"}") + "." + B64(
+            $"{{\"sub\":\"{id}\",\"role\":\"User\",\"iss\":\"{ApiFactory.TestIssuer}\",\"aud\":\"{ApiFactory.TestIssuer}\"," +
+            $"\"iat\":{now.ToUnixTimeSeconds()},\"nbf\":{now.ToUnixTimeSeconds()},\"exp\":{now.AddMinutes(5).ToUnixTimeSeconds()}}}") + ".";
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/me", token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UnmatchedRoute_Returns401ToAnonymous_And404ToAuthenticated()
+    {
+        // The fallback policy also covers requests that match no endpoint, so anonymous callers cannot probe routes.
+        var email = ApiDatabaseFixture.UniqueEmail("user");
+        await ApiDatabaseFixture.CreateUserAsync(_factory, email, Password);
+        var login = await AuthHttp.LoginAsync(_client, email, Password);
+
+        var anonymous = await _client.GetAsync("/api/does-not-exist");
+        var authenticated = await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/does-not-exist", login.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, authenticated.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminOnlyEndpoint_AdminToken_Works_UserToken_Forbidden()
+    {
+        var adminEmail = ApiDatabaseFixture.UniqueEmail("admin");
+        await ApiDatabaseFixture.CreateUserAsync(_factory, adminEmail, Password, GlobalRole.Admin);
+        var userEmail = ApiDatabaseFixture.UniqueEmail("user");
+        await ApiDatabaseFixture.CreateUserAsync(_factory, userEmail, Password);
+        var admin = await AuthHttp.LoginAsync(_client, adminEmail, Password);
+        var user = await AuthHttp.LoginAsync(_client, userEmail, Password);
+
+        Assert.Equal(HttpStatusCode.OK, (await AuthHttp.SendAsync(_client, HttpMethod.Get, "/test/admin-only", admin.AccessToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await AuthHttp.SendAsync(_client, HttpMethod.Get, "/test/admin-only", user.AccessToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task DemotedAdmin_ExistingToken_Returns401()
+    {
+        // Authorization comes from SQL: a token whose role claim no longer matches the stored role is rejected.
+        var email = ApiDatabaseFixture.UniqueEmail("admin");
+        var id = await ApiDatabaseFixture.CreateUserAsync(_factory, email, Password, GlobalRole.Admin);
+        var login = await AuthHttp.LoginAsync(_client, email, Password);
+        Assert.Equal(HttpStatusCode.OK, (await AuthHttp.SendAsync(_client, HttpMethod.Get, "/test/admin-only", login.AccessToken)).StatusCode);
+
+        await ApiDatabaseFixture.WithDbAsync(_factory, async d =>
+        {
+            var user = await d.Users.SingleAsync(u => u.Id == id);
+            d.Entry(user).Property(u => u.GlobalRole).CurrentValue = GlobalRole.User;
+            return await d.SaveChangesAsync();
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await AuthHttp.SendAsync(_client, HttpMethod.Get, "/test/admin-only", login.AccessToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/me", login.AccessToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TokenWithMissingRoleClaim_Returns401()
+    {
+        var id = await ApiDatabaseFixture.CreateUserAsync(_factory, ApiDatabaseFixture.UniqueEmail("user"), Password);
+        var now = DateTime.UtcNow;
+        var token = Mint(id, ApiFactory.TestSigningKey, ApiFactory.TestIssuer, ApiFactory.TestIssuer, now.AddMinutes(5), now, role: null);
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/me", token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    internal static string Mint(
+        Guid userId, string key, string issuer, string audience, DateTime expires, DateTime issuedAt,
+        string algorithm = SecurityAlgorithms.HmacSha256, string? role = "User")
+    {
+        var claims = new Dictionary<string, object> { ["sub"] = userId.ToString() };
+        if (role is not null)
+        {
+            claims["role"] = role;
+        }
+
+        return new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = false }.CreateToken(new SecurityTokenDescriptor
         {
             Issuer = issuer,
             Audience = audience,
             IssuedAt = issuedAt,
             NotBefore = issuedAt,
             Expires = expires,
-            Claims = new Dictionary<string, object> { ["sub"] = userId.ToString(), ["role"] = "User" },
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256),
+            Claims = claims,
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), algorithm),
         });
+    }
 }
