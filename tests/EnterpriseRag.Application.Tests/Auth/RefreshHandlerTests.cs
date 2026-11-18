@@ -59,6 +59,28 @@ public class RefreshHandlerTests
         Assert.Contains(_h.Audit.Entries, e => e.Action == AuditActions.RefreshTokenReuseDetected);
     }
 
+    [Theory]
+    [InlineData(1)] // rotation save loses the race; the family-revocation save succeeds
+    [InlineData(2)] // the family-revocation save conflicts as well
+    public async Task Refresh_ConcurrentRotation_ConflictOnSave_RevokesFamilyAndFails(int conflictingSaves)
+    {
+        var login = await LoginAsync();
+        var familyId = Assert.Single(_h.Db.RefreshTokens).FamilyId;
+        for (var i = 0; i < conflictingSaves; i++)
+        {
+            _h.Db.SaveFailures.Enqueue(new ConflictException("Concurrency conflict."));
+        }
+
+        var ex = await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
+            _h.Refresh().HandleAsync(new RefreshCommand(login.RefreshToken), CancellationToken.None));
+
+        Assert.Equal(AuthenticationFailedException.GenericMessage, ex.Message);
+        Assert.All(_h.Db.RefreshTokens.Where(t => t.FamilyId == familyId), t => Assert.NotNull(t.RevokedAt));
+        Assert.DoesNotContain(_h.Db.RefreshTokens, t => t.IsActive(_h.Clock.UtcNow));
+        var entry = Assert.Single(_h.Audit.Entries, e => e.Action == AuditActions.RefreshTokenReuseDetected);
+        Assert.Equal($"{{\"familyId\":\"{familyId}\"}}", entry.DetailsJson);
+    }
+
     [Fact]
     public async Task Refresh_ForInactiveUser_Fails()
     {

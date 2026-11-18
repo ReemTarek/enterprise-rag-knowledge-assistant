@@ -58,7 +58,7 @@ public sealed class LoginHandler(
         }
 
         user.RegisterSuccessfulLogin();
-        var result = TokenIssuer.Issue(db, tokens, user, Guid.CreateVersion7());
+        var result = TokenIssuer.Issue(db, tokens, user, Guid.CreateVersion7(), out _);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(AuditActions.LoginSucceeded, AuditTargets.User, user.Id.ToString(), null, ct);
         return result;
@@ -70,17 +70,19 @@ public sealed class LoginHandler(
 internal static class TokenIssuer
 {
     /// <summary>Creates an access token and a new refresh token in <paramref name="familyId"/>; stores only the hash.</summary>
-    public static AuthResult Issue(IAppDbContext db, ITokenService tokens, User user, Guid familyId, RefreshTokenIssue? refresh = null)
+    public static AuthResult Issue(
+        IAppDbContext db, ITokenService tokens, User user, Guid familyId, out RefreshToken stored, RefreshTokenIssue? refresh = null)
     {
         var access = tokens.CreateAccessToken(user);
         refresh ??= tokens.CreateRefreshToken();
-        db.Add(new RefreshToken
+        stored = new RefreshToken
         {
             UserId = user.Id,
             TokenHash = refresh.Hash,
             FamilyId = familyId,
             ExpiresAt = refresh.ExpiresAtUtc,
-        });
+        };
+        db.Add(stored);
         return new AuthResult(access.Value, access.ExpiresAtUtc, refresh.Raw, refresh.ExpiresAtUtc, user.MustChangePassword);
     }
 

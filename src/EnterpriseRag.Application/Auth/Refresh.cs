@@ -1,6 +1,7 @@
 using EnterpriseRag.Application.Abstractions;
 using EnterpriseRag.Application.Common;
 using EnterpriseRag.Application.Security;
+using EnterpriseRag.Domain.Identity;
 
 namespace EnterpriseRag.Application.Auth;
 
@@ -54,10 +55,40 @@ public sealed class RefreshHandler(
         var next = tokens.CreateRefreshToken();
         token.RevokedAt = now;
         token.ReplacedByTokenHash = next.Hash;
-        var result = TokenIssuer.Issue(db, tokens, user, token.FamilyId, next);
-        await db.SaveChangesAsync(ct);
+        var result = TokenIssuer.Issue(db, tokens, user, token.FamilyId, out var replacement, next);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (ConflictException)
+        {
+            // Another request rotated this token concurrently (lost optimistic-concurrency race). Two parties held the
+            // same token, so treat it exactly like reuse: kill the family and fail with the generic 401.
+            await RevokeFamilyAfterRaceAsync(token.FamilyId, replacement, now, ct);
+            await audit.LogAsync(AuditActions.RefreshTokenReuseDetected, AuditTargets.User, token.UserId.ToString(),
+                new { familyId = token.FamilyId }, ct);
+            throw new AuthenticationFailedException();
+        }
+
         await audit.LogAsync(AuditActions.TokenRefreshed, AuditTargets.User, user.Id.ToString(), new { familyId = token.FamilyId }, ct);
         return result;
+    }
+
+    private async Task RevokeFamilyAfterRaceAsync(Guid familyId, RefreshToken unsavedReplacement, DateTime now, CancellationToken ct)
+    {
+        // The replacement was never persisted, but make sure it can never become usable if a later save flushes it.
+        unsavedReplacement.RevokedAt = now;
+        try
+        {
+            await TokenIssuer.RevokeFamilyAsync(db, query, familyId, now, ct);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (ConflictException)
+        {
+            // Best effort only: the caller still gets AuthenticationFailedException, never a 409. Infrastructure must
+            // make this second save succeed (discard the failed rotation changes on conflict), otherwise the winner's
+            // replacement token stays live — see the IAppDbContext.SaveChangesAsync contract.
+        }
     }
 }
 

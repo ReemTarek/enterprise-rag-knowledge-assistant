@@ -45,7 +45,11 @@ public sealed class InMemoryAppDbContext : IAppDbContext
 
     public IQueryable<AuditLog> AuditLogs => _auditLogs.AsQueryable();
 
+    /// <summary>Successful saves only.</summary>
     public int SaveCount { get; private set; }
+
+    /// <summary>Exceptions thrown by the next saves, in order (simulates optimistic-concurrency failures).</summary>
+    public Queue<Exception> SaveFailures { get; } = new();
 
     public void Add<T>(T entity) where T : class
     {
@@ -69,6 +73,11 @@ public sealed class InMemoryAppDbContext : IAppDbContext
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
     {
+        if (SaveFailures.TryDequeue(out var failure))
+        {
+            throw failure;
+        }
+
         SaveCount++;
         return Task.FromResult(1);
     }

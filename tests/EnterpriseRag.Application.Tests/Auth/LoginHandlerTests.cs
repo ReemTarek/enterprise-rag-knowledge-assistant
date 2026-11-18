@@ -72,11 +72,13 @@ public class LoginHandlerTests
         await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
             _h.Login().HandleAsync(new LoginCommand("dave@example.com", "bad"), CancellationToken.None));
         Assert.Equal(1, user.FailedLoginCount);
+        Assert.Equal(1, _h.Db.SaveCount); // failed attempt is persisted
 
         var result = await _h.Login().HandleAsync(new LoginCommand("  Dave@Example.com ", TestHarness.DefaultPassword), CancellationToken.None);
 
         Assert.True(result.MustChangePassword);
         Assert.Equal(0, user.FailedLoginCount);
+        Assert.Equal(2, _h.Db.SaveCount); // counter reset and refresh token are persisted
         var stored = Assert.Single(_h.Db.RefreshTokens);
         Assert.Equal(_h.Tokens.HashRefreshToken(result.RefreshToken), stored.TokenHash);
         Assert.NotEqual(result.RefreshToken, stored.TokenHash);
