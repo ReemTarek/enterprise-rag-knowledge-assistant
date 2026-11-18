@@ -55,6 +55,13 @@ public class KnowledgeBase : SoftDeletableEntity
     public void ChangeMemberRole(Guid userId, KnowledgeBaseRole role)
     {
         var member = Find(userId);
+        if (member.Role == role)
+        {
+            // Unchanged role: nothing to do, and PermissionVersion must not move (it would needlessly
+            // invalidate permission-keyed caches).
+            return;
+        }
+
         if (member.Role == KnowledgeBaseRole.Owner && role != KnowledgeBaseRole.Owner)
         {
             EnsureAnotherOwner(userId);

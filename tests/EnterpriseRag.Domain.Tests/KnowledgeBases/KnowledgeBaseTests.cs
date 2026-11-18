@@ -63,6 +63,22 @@ public class KnowledgeBaseTests
     }
 
     [Fact]
+    public void KnowledgeBase_ChangeMemberRole_SameRole_IsNoOp()
+    {
+        var owner = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var kb = KnowledgeBase.Create("Docs", null, owner);
+        kb.AddMember(other, KnowledgeBaseRole.Viewer);
+        var v = kb.PermissionVersion;
+
+        kb.ChangeMemberRole(other, KnowledgeBaseRole.Viewer);
+        kb.ChangeMemberRole(owner, KnowledgeBaseRole.Owner); // sole owner keeping Owner must not throw
+
+        Assert.Equal(v, kb.PermissionVersion);
+        Assert.Equal(KnowledgeBaseRole.Viewer, kb.RoleOf(other));
+    }
+
+    [Fact]
     public void KnowledgeBase_Create_InvalidName_Throws()
     {
         Assert.Throws<DomainException>(() => KnowledgeBase.Create("", null, Guid.NewGuid()));
