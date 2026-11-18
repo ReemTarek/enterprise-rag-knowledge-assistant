@@ -6,8 +6,14 @@ Onion layers: `Domain <- Application <- Infrastructure <- API / Worker`; `Shared
 
 ```
 src/  EnterpriseRag.{Domain,Application,Infrastructure,API,Worker,Shared}
-tests/ Domain.Tests, Application.Tests, Infrastructure.Tests, API.IntegrationTests, Architecture.Tests
+tests/ EnterpriseRag.{Domain.Tests,Application.Tests,Infrastructure.Tests,API.IntegrationTests,Architecture.Tests}
 frontend/enterprise-rag-web     docs/
 ```
+
+## Implemented in Phase 1
+- Health endpoints: `/health/live` (liveness) and `/health/ready` (readiness, includes SQL Server check).
+- Correlation id middleware (sanitised inbound header, echoed on the response, attached to logs) and Serilog logging.
+- Global exception handling returning RFC 7807 ProblemDetails.
+- Persistence base: EF Core `AppDbContext`, audit fields, soft delete with global query filter, initial migration; validated typed options (`ValidateOnStart`).
 
 To be expanded as phases land.
