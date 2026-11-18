@@ -16,6 +16,7 @@ public class DependencyRulesTests
     {
         "Microsoft.EntityFrameworkCore",
         "Microsoft.AspNetCore",
+        "Microsoft.AspNetCore.Identity",
         "Hangfire",
         "StackExchange.Redis",
         "RabbitMQ",

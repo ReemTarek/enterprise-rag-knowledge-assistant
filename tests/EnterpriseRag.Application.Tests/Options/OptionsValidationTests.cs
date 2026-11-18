@@ -129,6 +129,32 @@ public class OptionsValidationTests
     }
 }
 
+public class SecurityOptionsTests
+{
+    [Fact]
+    public void SecurityOptions_Defaults_MatchSpec()
+    {
+        var s = new SecurityOptions();
+        Assert.Equal(5, s.MaxFailedLogins);
+        Assert.Equal(15, s.LockoutMinutes);
+        Assert.Equal(12, s.MinPasswordLength);
+    }
+
+    [Theory]
+    [InlineData("Security:MaxFailedLogins", "0")]
+    [InlineData("Security:LockoutMinutes", "0")]
+    [InlineData("Security:MinPasswordLength", "4")]
+    public void SecurityOptions_OutOfRange_FailsValidation(string key, string value)
+    {
+        IConfiguration config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { [key] = value }).Build();
+        var services = new ServiceCollection();
+        services.AddValidatedOptions<SecurityOptions>(config, SecurityOptions.SectionName);
+        using var sp = services.BuildServiceProvider();
+        Assert.Throws<OptionsValidationException>(() => sp.GetRequiredService<IOptions<SecurityOptions>>().Value);
+    }
+}
+
 public class AiOptionsNestedValidationTests
 {
     private static ServiceProvider Build(string? baseUrl, string? dims)
