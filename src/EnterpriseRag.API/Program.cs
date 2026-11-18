@@ -37,7 +37,11 @@ builder.Services.AddValidatedOptions<RagOptions>(builder.Configuration, "Rag");
 
 builder.Services.AddControllers()
     // Malformed JSON gets a generic model-state message instead of the parser's (which can quote the input).
-    .AddJsonOptions(options => options.AllowInputFormatterExceptionMessages = false);
+    .AddJsonOptions(options =>
+    {
+        options.AllowInputFormatterExceptionMessages = false;
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddApiAuthentication();
 builder.Services.AddApiRateLimiting();
 
