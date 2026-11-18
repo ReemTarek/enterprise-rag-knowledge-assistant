@@ -78,13 +78,18 @@ public class DependencyRulesTests
     public void Infrastructure_DoesNotDependOn_ApiWorker() =>
         AssertNoDependency(Infrastructure, "EnterpriseRag.API", "EnterpriseRag.Worker");
 
-    // No controllers exist yet, so the selection is empty and this passes trivially.
-    // The rule is still evaluated through NetArchTest and starts biting once controllers are added.
     [Fact]
-    public void Controllers_DoNotDependOn_InfrastructureNamespaces() =>
+    public void Api_ContainsControllers() =>
+        Assert.NotEmpty(Types.InAssembly(Api).That().HaveNameEndingWith("Controller").GetTypes());
+
+    // Controllers talk to Application handlers only: no Infrastructure adapters and no EF Core.
+    [Theory]
+    [InlineData("EnterpriseRag.Infrastructure")]
+    [InlineData("Microsoft.EntityFrameworkCore")]
+    public void Controllers_DoNotDependOn_InfrastructureNamespaces(string forbidden) =>
         AssertResult(Types.InAssembly(Api)
             .That().HaveNameEndingWith("Controller")
-            .ShouldNot().HaveDependencyOn("EnterpriseRag.Infrastructure")
+            .ShouldNot().HaveDependencyOn(forbidden)
             .GetResult());
 
     private static void AssertNoDependency(Assembly assembly, params string[] forbidden) =>

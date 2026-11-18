@@ -1,6 +1,8 @@
+using EnterpriseRag.API.IntegrationTests.Support;
 using EnterpriseRag.Domain.Common;
-using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +19,9 @@ public sealed class ApiFactory(string environment = "Production", string? connec
 
     public const string TestSigningKey = "api-test-signing-key-at-least-32-bytes-long";
 
+    /// <summary>Used as both issuer and audience.</summary>
+    public const string TestIssuer = "EnterpriseRag.Tests";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
@@ -24,21 +29,26 @@ public sealed class ApiFactory(string environment = "Production", string? connec
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Database:ConnectionString"] = connectionString ?? FakeConnectionString,
-                ["Jwt:Issuer"] = "EnterpriseRag.Tests",
-                ["Jwt:Audience"] = "EnterpriseRag.Tests",
+                ["Jwt:Issuer"] = TestIssuer,
+                ["Jwt:Audience"] = TestIssuer,
                 ["Jwt:SigningKey"] = TestSigningKey,
+                ["Seed:AdminEmail"] = ApiDatabaseFixture.AdminEmail,
+                ["Seed:AdminPassword"] = ApiDatabaseFixture.AdminPassword,
             }));
+        // Test-only endpoints live in TestEndpointsController (this assembly) so they run through the real routing,
+        // authorization and exception pipeline.
         builder.ConfigureServices(services =>
-            services.AddTransient<IStartupFilter, TestEndpointsFilter>());
+            services.AddControllers().AddApplicationPart(typeof(ApiFactory).Assembly));
     }
+}
 
-    private sealed class TestEndpointsFilter : IStartupFilter
-    {
-        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
-        {
-            next(app);
-            app.Map("/test/throw", b => b.Run(_ => throw new InvalidOperationException(SecretMessage)));
-            app.Map("/test/domain", b => b.Run(_ => throw new DomainException("Name is required")));
-        };
-    }
+[AllowAnonymous]
+[Route("test")]
+public sealed class TestEndpointsController : ControllerBase
+{
+    [HttpGet("throw")]
+    public IActionResult Throw() => throw new InvalidOperationException(ApiFactory.SecretMessage);
+
+    [HttpGet("domain")]
+    public IActionResult Domain() => throw new DomainException("Name is required");
 }
