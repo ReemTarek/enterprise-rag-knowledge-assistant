@@ -18,9 +18,11 @@ public sealed class IdentityPersistenceTests(SqlServerFixture fixture)
 {
     private static readonly DateTime FixedNow = new(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc);
 
-    private async Task<ServiceProvider> MigratedAsync(Dictionary<string, string?>? overrides = null, FakeDateTimeProvider? clock = null)
+    private async Task<ServiceProvider> MigratedAsync(
+        Dictionary<string, string?>? overrides = null, FakeDateTimeProvider? clock = null, string? currentUserId = null)
     {
-        var sp = InfrastructureHarness.Build(fixture.NewDatabaseConnectionString(), clock ?? new FakeDateTimeProvider(FixedNow), overrides);
+        var sp = InfrastructureHarness.Build(
+            fixture.NewDatabaseConnectionString(), clock ?? new FakeDateTimeProvider(FixedNow), overrides, currentUserId);
         await InfrastructureHarness.MigrateAsync(sp);
         return sp;
     }
@@ -413,7 +415,8 @@ public sealed class IdentityPersistenceTests(SqlServerFixture fixture)
     [Fact]
     public async Task UserDirectory_SearchWithWildcardCharacters_DoesNotMatchEverything()
     {
-        await using var sp = await MigratedAsync();
+        // The directory requires a signed-in caller (any id will do; it is not used for filtering).
+        await using var sp = await MigratedAsync(currentUserId: Guid.NewGuid().ToString());
         await AddUserAsync(sp, "alice@example.com", "Alice Anders");
         await AddUserAsync(sp, "bob@example.com", "Bob Brown");
         await AddUserAsync(sp, "percent@example.com", "Carol 50%off");

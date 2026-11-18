@@ -163,13 +163,43 @@ public class UserHandlerTests
             _h.ResetPassword().HandleAsync(new ResetPasswordCommand(target.Id), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ResetPassword_ClearsLockout()
+    {
+        var target = _h.AddUser("target@example.com");
+        for (var i = 0; i < _h.Security.MaxFailedLogins; i++)
+        {
+            await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
+                _h.Login().HandleAsync(new LoginCommand("target@example.com", "Wrong-Password-1"), CancellationToken.None));
+        }
+
+        Assert.True(target.IsLockedOut(_h.Clock.UtcNow));
+        SignInAdmin();
+
+        var result = await _h.ResetPassword().HandleAsync(new ResetPasswordCommand(target.Id), CancellationToken.None);
+
+        Assert.False(target.IsLockedOut(_h.Clock.UtcNow));
+        Assert.Equal(0, target.FailedLoginCount);
+        var login = await _h.Login().HandleAsync(new LoginCommand("target@example.com", result.TemporaryPassword), CancellationToken.None);
+        Assert.True(login.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task SearchDirectory_Anonymous_IsDenied()
+    {
+        _h.AddUser("abby@example.com", "Abby");
+
+        await Assert.ThrowsAsync<AccessDeniedException>(() =>
+            _h.SearchDirectory().HandleAsync(new SearchUserDirectoryQuery("abby"), CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("a")]
     [InlineData(" b ")]
     public async Task SearchDirectory_ShortQuery_Fails(string query)
     {
-        _h.AddUser("abby@example.com", "Abby");
+        _h.SignInAs(_h.AddUser("abby@example.com", "Abby"));
 
         await Assert.ThrowsAsync<ValidationException>(() =>
             _h.SearchDirectory().HandleAsync(new SearchUserDirectoryQuery(query), CancellationToken.None));
@@ -186,6 +216,7 @@ public class UserHandlerTests
         _h.AddUser("zed@example.com", "Matcher Inactive", active: false);
         _h.AddUser("other@example.com", "Mateo MATCH");
         _h.AddUser("nope@example.com", "Unrelated");
+        _h.SignInAs(_h.Db.Users.First());
 
         var results = await _h.SearchDirectory().HandleAsync(new SearchUserDirectoryQuery("MATCH"), CancellationToken.None);
 

@@ -64,7 +64,7 @@ public sealed class TestHarness
 
     public LogoutHandler Logout() => new(Db, Query, Tokens, Clock, Audit);
 
-    public ChangePasswordHandler ChangePassword() => new(Db, Query, Hasher, CurrentUser, Security, Audit);
+    public ChangePasswordHandler ChangePassword() => new(Db, Query, Hasher, Tokens, Clock, CurrentUser, Security, Audit);
 
     public CreateUserHandler CreateUser() => new(Db, Query, Hasher, CurrentUser, Audit);
 
@@ -74,7 +74,9 @@ public sealed class TestHarness
 
     public ResetPasswordHandler ResetPassword() => new(Db, Query, Hasher, CurrentUser, Clock, Audit);
 
-    public SearchUserDirectoryHandler SearchDirectory() => new(Db, Query);
+    public SearchUserDirectoryHandler SearchDirectory() => new(Db, Query, CurrentUser);
+
+    public GetCurrentUserHandler GetCurrentUser() => new(Db, Query, CurrentUser);
 
     public CreateKnowledgeBaseHandler CreateKnowledgeBase() => new(Db, CurrentUser, Audit);
 

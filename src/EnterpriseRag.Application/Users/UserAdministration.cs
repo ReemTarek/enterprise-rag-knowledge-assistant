@@ -130,6 +130,7 @@ public sealed class ResetPasswordHandler(
 
         var temporaryPassword = hasher.GenerateTemporaryPassword();
         user.SetPassword(hasher.Hash(temporaryPassword), mustChange: true);
+        user.RegisterSuccessfulLogin(); // an admin reset also lifts any lockout and clears the failed-attempt counter
         await TokenIssuer.RevokeAllForUserAsync(db, query, user.Id, clock.UtcNow, ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(AuditActions.PasswordReset, AuditTargets.User, user.Id.ToString(), null, ct);

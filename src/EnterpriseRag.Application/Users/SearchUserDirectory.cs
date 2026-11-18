@@ -1,4 +1,5 @@
 using EnterpriseRag.Application.Abstractions;
+using EnterpriseRag.Application.Security;
 using FluentValidation;
 
 namespace EnterpriseRag.Application.Users;
@@ -22,7 +23,7 @@ public sealed class SearchUserDirectoryValidator : AbstractValidator<SearchUserD
     }
 }
 
-public sealed class SearchUserDirectoryHandler(IAppDbContext db, IAsyncQueryExecutor query)
+public sealed class SearchUserDirectoryHandler(IAppDbContext db, IAsyncQueryExecutor query, ICurrentUserService currentUser)
 {
     public const int MaxResults = 20;
 
@@ -30,6 +31,7 @@ public sealed class SearchUserDirectoryHandler(IAppDbContext db, IAsyncQueryExec
 
     public async Task<IReadOnlyList<DirectoryUserDto>> HandleAsync(SearchUserDirectoryQuery request, CancellationToken ct)
     {
+        currentUser.RequireUserId(); // defense in depth: the endpoint already requires authentication
         await Validator.ValidateAndThrowAsync(request, ct);
         var term = request.Query.Trim().ToLowerInvariant();
 

@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<DeactivateUserHandler>();
         services.AddScoped<ResetPasswordHandler>();
         services.AddScoped<SearchUserDirectoryHandler>();
+        services.AddScoped<GetCurrentUserHandler>();
 
         services.AddScoped<CreateKnowledgeBaseHandler>();
         services.AddScoped<ListKnowledgeBasesHandler>();

@@ -7,7 +7,11 @@ using FluentValidation.Results;
 
 namespace EnterpriseRag.Application.Auth;
 
-public sealed record ChangePasswordCommand(string CurrentPassword, string NewPassword);
+/// <param name="CurrentRefreshTokenRaw">
+/// The caller's refresh cookie, if any. Its family (the current device) stays signed in; every other refresh token of
+/// the user is revoked. Ignored when it is unknown, revoked, expired or belongs to someone else.
+/// </param>
+public sealed record ChangePasswordCommand(string CurrentPassword, string NewPassword, string? CurrentRefreshTokenRaw = null);
 
 public sealed class ChangePasswordValidator : AbstractValidator<ChangePasswordCommand>
 {
@@ -34,6 +38,8 @@ public sealed class ChangePasswordHandler(
     IAppDbContext db,
     IAsyncQueryExecutor query,
     IPasswordHasher hasher,
+    ITokenService tokens,
+    IDateTimeProvider clock,
     ICurrentUserService currentUser,
     SecurityOptions security,
     IAuditLogger audit)
@@ -52,8 +58,34 @@ public sealed class ChangePasswordHandler(
                 [new ValidationFailure(nameof(ChangePasswordCommand.CurrentPassword), "The current password is incorrect.")]);
         }
 
+        var now = clock.UtcNow;
+        var keepFamily = await CurrentFamilyAsync(command.CurrentRefreshTokenRaw, userId, now, ct);
+
         user.SetPassword(hasher.Hash(command.NewPassword), mustChange: false);
+
+        // Ruling: a password change ends every other session; the presenting device (its refresh family) stays signed in.
+        var others = await query.ToListAsync(
+            db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null && t.FamilyId != keepFamily), ct);
+        foreach (var token in others)
+        {
+            token.RevokedAt = now;
+        }
+
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(AuditActions.PasswordChanged, AuditTargets.User, user.Id.ToString(), null, ct);
+    }
+
+    /// <summary>The family of the presented refresh token when it is the caller's own, active and unexpired; else null.</summary>
+    private async Task<Guid?> CurrentFamilyAsync(string? raw, Guid userId, DateTime now, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var hash = tokens.HashRefreshToken(raw);
+        var token = await query.FirstOrDefaultAsync(
+            db.RefreshTokens.Where(t => t.TokenHash == hash && t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > now), ct);
+        return token?.FamilyId;
     }
 }
