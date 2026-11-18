@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EnterpriseRag.Domain\EnterpriseRag.Domain.csproj" />
+    <ProjectReference Include="..\..\src\EnterpriseRag.Application\EnterpriseRag.Application.csproj" />
+    <ProjectReference Include="..\..\src\EnterpriseRag.Infrastructure\EnterpriseRag.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\EnterpriseRag.API\EnterpriseRag.API.csproj" />
+    <ProjectReference Include="..\..\src\EnterpriseRag.Worker\EnterpriseRag.Worker.csproj" />
+    <ProjectReference Include="..\..\src\EnterpriseRag.Shared\EnterpriseRag.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

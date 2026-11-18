@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Backend build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # global.json pins SDK 11.0.100 (a stable version number). If the GA SDK is
+      # not yet served by setup-dotnet, add `dotnet-quality: preview` here.
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      # Includes architecture tests; Testcontainers uses the runner's Docker.
+      - name: Test
+        run: dotnet test -c Release --no-build
