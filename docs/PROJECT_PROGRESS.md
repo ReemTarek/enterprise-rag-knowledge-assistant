@@ -15,6 +15,7 @@ Phase 1: Foundation - implementation complete and verified (tests + end-to-end) 
 - Task 8 (f26892e): liveness and readiness health checks
 - Task 9 (b0a09c1): Docker Compose SQL Server and CI workflow
 - Task 10: this verification and progress update
+- Final-review fixes (d498736): UTC Kind value converter, AuditLog guard exception type (500 not 400), .sln nesting, empty PropertyGroups, arch-test gaps (MediatR/SqlClient, Shared deps), ef command doc, InitialCreate class rename, CreatedAt/CreatedBy protection, migration HasPendingModelChanges check, guard bypass comment. Tests now Domain 4, Application 13, Architecture 33, Infrastructure 8, API 18 (76).
 
 ## Status
 Code for all Phase 1 tasks is committed and each task passed its per-task review. Final verification (2026-11-18, Release, after the user turned off Smart App Control):
@@ -49,14 +50,13 @@ Code for all Phase 1 tasks is committed and each task passed its per-task review
 Environment:
 - (Resolved) Smart App Control blocked freshly built unsigned DLLs (0x800711C7); disabled by the user. Some package versions are pinned lower because of it (see Decisions) and could be bumped.
 - CI has not yet run on GitHub; SDK 11.0.100 resolution via setup-dotnet is unverified; ci.yml YAML unparsed.
-- docs/INFRASTRUCTURE.md `dotnet ef database update` command verified working with `--configuration Release --startup-project src/EnterpriseRag.Infrastructure --project src/EnterpriseRag.Infrastructure` (the doc should be updated to include `--configuration Release`); doc shows the password inline in example commands.
+- docs/INFRASTRUCTURE.md `dotnet ef database update` command verified working with `--configuration Release --startup-project src/EnterpriseRag.Infrastructure --project src/EnterpriseRag.Infrastructure`; doc shows the password inline in example commands.
 
 Deferred minor findings by task:
-- Task 2: .sln NestedProjects wrong (API/Infrastructure nested under tests; Worker, Infrastructure.Tests, Architecture.Tests at root); empty PropertyGroups in csproj.
-- Task 3: no "Shared has no deps" architecture test; no Domain/Application referenced-assemblies check; rule context missing from failure messages.
-- Task 4: no Unspecified-Kind test; "Twice" soft-delete test does not assert DeletedAt unchanged; Id public setter / default Empty.
+- Task 3: no Domain/Application referenced-assemblies check; rule context missing from failure messages.
+- Task 4: "Twice" soft-delete test does not assert DeletedAt unchanged; Id public setter / default Empty.
 - Task 5: add SectionName consts on options classes (casing "AI" vs "Ai"); missing tests for TimeoutSeconds<=0, empty ChatModel/EmbeddingModel, absent Database section; host-start test asserts only exception type, not message naming the failing property.
-- Task 6: bulk ExecuteUpdate/ExecuteDelete bypass of AuditLog guard undocumented; datetime2 reads back Kind=Unspecified (no UTC ValueConverter, affects UTC consistency); sync SaveChanges untested; migration test weak (add HasPendingModelChanges); migration class named _2026..._InitialCreate; DI resolution test carried to Task 7.
+- Task 6: sync SaveChanges untested; DI resolution test carried to Task 7.
 - Task 7: test names (..._OversizedOrWithNewlines_IsReplaced covers the no-newline case; one mentions Worker but covers API too); verify exception logged once (ExceptionHandlerMiddleware may also log); Worker uses Serilog.AspNetCore (heavier than Extensions.Hosting + Console); no Serilog bootstrap logger; no comment on version pins in Directory.Packages.props; ADR 0002 lacks a note that EmbeddingDimensions 768 changes in Phase 4; no Swagger-in-Development test; CR/LF correlation test calls middleware directly; Development appsettings only JSON-validated, not options-validated.
 - Task 8: readiness check has no explicit timeout (SqlClient default ~15s); "ready" tag literal duplicated between Infrastructure and API; each HealthTests instance starts its own MsSql container (~40s total; share a fixture); sentinel test healthy case does not assert host/port.
 - Task 9: ci.yml has no timeout-minutes/concurrency; push + pull_request double runs; bare `dotnet restore/test` relies on a single .sln (use explicit path).
