@@ -16,7 +16,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261118172517_InitialCreate";
+    public override string LastMigrationId => "20261118191226_AddIdentityAndKnowledgeBases";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -61,6 +61,215 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                 b.HasIndex("OccurredAt");
 
                 b.ToTable("AuditLogs");
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.Identity.RefreshToken", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
+
+                b.Property<DateTime>("ExpiresAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<Guid>("FamilyId")
+                    .HasColumnType("uniqueidentifier");
+
+                b.Property<string>("ReplacedByTokenHash")
+                    .HasMaxLength(128)
+                    .HasColumnType("nvarchar(128)");
+
+                b.Property<DateTime?>("RevokedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<byte[]>("RowVersion")
+                    .IsConcurrencyToken()
+                    .IsRequired()
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasColumnType("rowversion");
+
+                b.Property<string>("TokenHash")
+                    .IsRequired()
+                    .HasMaxLength(128)
+                    .HasColumnType("nvarchar(128)");
+
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uniqueidentifier");
+
+                b.HasKey("Id");
+
+                b.HasIndex("TokenHash")
+                    .IsUnique();
+
+                b.HasIndex("UserId", "FamilyId");
+
+                b.ToTable("RefreshTokens");
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.Identity.User", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("CreatedBy")
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<DateTime?>("DeletedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("DisplayName")
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<string>("Email")
+                    .IsRequired()
+                    .HasMaxLength(256)
+                    .HasColumnType("nvarchar(256)");
+
+                b.Property<int>("FailedLoginCount")
+                    .HasColumnType("int");
+
+                b.Property<string>("GlobalRole")
+                    .IsRequired()
+                    .HasMaxLength(32)
+                    .HasColumnType("nvarchar(32)");
+
+                b.Property<bool>("IsActive")
+                    .HasColumnType("bit");
+
+                b.Property<bool>("IsDeleted")
+                    .HasColumnType("bit");
+
+                b.Property<DateTime?>("LockoutEndUtc")
+                    .HasColumnType("datetime2");
+
+                b.Property<bool>("MustChangePassword")
+                    .HasColumnType("bit");
+
+                b.Property<string>("PasswordHash")
+                    .IsRequired()
+                    .HasMaxLength(512)
+                    .HasColumnType("nvarchar(512)");
+
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("UpdatedBy")
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Email")
+                    .IsUnique()
+                    .HasDatabaseName("IX_Users_Email")
+                    .HasFilter("[IsDeleted] = 0");
+
+                b.ToTable("Users");
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.KnowledgeBases.KnowledgeBase", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uniqueidentifier");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("CreatedBy")
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<DateTime?>("DeletedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Description")
+                    .HasMaxLength(2000)
+                    .HasColumnType("nvarchar(2000)");
+
+                b.Property<bool>("IsDeleted")
+                    .HasColumnType("bit");
+
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<int>("PermissionVersion")
+                    .HasColumnType("int");
+
+                b.Property<byte[]>("RowVersion")
+                    .IsConcurrencyToken()
+                    .IsRequired()
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasColumnType("rowversion");
+
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("UpdatedBy")
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.HasKey("Id");
+
+                b.ToTable("KnowledgeBases");
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.KnowledgeBases.KnowledgeBaseUser", b =>
+            {
+                b.Property<Guid>("KnowledgeBaseId")
+                    .HasColumnType("uniqueidentifier");
+
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uniqueidentifier");
+
+                b.Property<string>("Role")
+                    .IsRequired()
+                    .HasMaxLength(32)
+                    .HasColumnType("nvarchar(32)");
+
+                b.HasKey("KnowledgeBaseId", "UserId");
+
+                b.HasIndex("UserId", "KnowledgeBaseId");
+
+                b.ToTable("KnowledgeBaseUsers");
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.Identity.RefreshToken", b =>
+            {
+                b.HasOne("EnterpriseRag.Domain.Identity.User", null)
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.KnowledgeBases.KnowledgeBaseUser", b =>
+            {
+                b.HasOne("EnterpriseRag.Domain.KnowledgeBases.KnowledgeBase", null)
+                    .WithMany("Members")
+                    .HasForeignKey("KnowledgeBaseId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("EnterpriseRag.Domain.Identity.User", null)
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("EnterpriseRag.Domain.KnowledgeBases.KnowledgeBase", b =>
+            {
+                b.Navigation("Members");
             });
 #pragma warning restore 612, 618
     }

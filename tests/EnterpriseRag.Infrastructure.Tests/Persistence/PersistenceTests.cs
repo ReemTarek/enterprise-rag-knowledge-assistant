@@ -183,7 +183,7 @@ public sealed class PersistenceTests(SqlServerFixture fixture)
 
         Assert.Empty(await ctx.Database.GetPendingMigrationsAsync());
         Assert.False(ctx.Database.HasPendingModelChanges());
-        Assert.Contains("InitialCreate", (await ctx.Database.GetAppliedMigrationsAsync()).Single());
+        Assert.Contains(await ctx.Database.GetAppliedMigrationsAsync(), m => m.EndsWith("_InitialCreate", StringComparison.Ordinal));
         Assert.False(await ctx.AuditLogs.AnyAsync());
     }
 }

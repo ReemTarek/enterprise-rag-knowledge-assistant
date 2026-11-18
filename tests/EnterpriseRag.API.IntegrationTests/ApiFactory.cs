@@ -9,10 +9,13 @@ namespace EnterpriseRag.API.IntegrationTests;
 
 public sealed class ApiFactory(string environment = "Production", string? connectionString = null) : WebApplicationFactory<Program>
 {
+    // Short connect timeout: the startup admin seed probes the database and must give up quickly when it is down.
     public const string FakeConnectionString =
-        "Server=localhost,1;Database=Fake;User Id=x;Password=x;TrustServerCertificate=True";
+        "Server=localhost,1;Database=Fake;User Id=x;Password=x;Connect Timeout=2;TrustServerCertificate=True";
 
     public const string SecretMessage = "super-secret-internal-detail";
+
+    public const string TestSigningKey = "api-test-signing-key-at-least-32-bytes-long";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -21,6 +24,9 @@ public sealed class ApiFactory(string environment = "Production", string? connec
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Database:ConnectionString"] = connectionString ?? FakeConnectionString,
+                ["Jwt:Issuer"] = "EnterpriseRag.Tests",
+                ["Jwt:Audience"] = "EnterpriseRag.Tests",
+                ["Jwt:SigningKey"] = TestSigningKey,
             }));
         builder.ConfigureServices(services =>
             services.AddTransient<IStartupFilter, TestEndpointsFilter>());
