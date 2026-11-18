@@ -23,6 +23,8 @@ public class DependencyRulesTests
         "Amazon",
         "Qdrant",
         "OllamaSharp",
+        "MediatR",
+        "Microsoft.Data.SqlClient",
     };
 
     // Guards against vacuous passes: every assembly must load and expose types.
@@ -64,6 +66,12 @@ public class DependencyRulesTests
     [MemberData(nameof(ForbiddenProviderNamespaces))]
     public void Application_DoesNotReference_ProviderNamespaces(string forbidden) =>
         AssertNoDependency(Application, forbidden);
+
+    [Fact]
+    public void Shared_DoesNotDependOn_DomainApplicationInfrastructureApiWorker() =>
+        AssertNoDependency(Shared,
+            "EnterpriseRag.Domain", "EnterpriseRag.Application", "EnterpriseRag.Infrastructure",
+            "EnterpriseRag.API", "EnterpriseRag.Worker");
 
     [Fact]
     public void Infrastructure_DoesNotDependOn_ApiWorker() =>

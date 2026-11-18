@@ -41,6 +41,8 @@ public sealed class AuditableEntityInterceptor(IDateTimeProvider clock, ICurrent
             {
                 entry.Entity.UpdatedAt = now;
                 entry.Entity.UpdatedBy = user;
+                entry.Property(e => e.CreatedAt).IsModified = false;
+                entry.Property(e => e.CreatedBy).IsModified = false;
             }
         }
     }

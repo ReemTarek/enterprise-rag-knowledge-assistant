@@ -13,7 +13,7 @@ namespace EnterpriseRag.Infrastructure.Persistence.Migrations;
 
 [DbContext(typeof(AppDbContext))]
 [Migration("20261118172517_InitialCreate")]
-partial class _20261118172517_InitialCreate
+partial class InitialCreate
 {
     /// <inheritdoc />
     protected override void BuildTargetModel(ModelBuilder modelBuilder)

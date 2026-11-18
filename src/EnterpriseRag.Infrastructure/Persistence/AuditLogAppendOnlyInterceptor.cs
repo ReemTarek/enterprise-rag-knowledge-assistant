@@ -1,5 +1,4 @@
 using EnterpriseRag.Domain.Audit;
-using EnterpriseRag.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -21,6 +20,7 @@ public sealed class AuditLogAppendOnlyInterceptor : SaveChangesInterceptor
         return ValueTask.FromResult(result);
     }
 
+    // Note: bulk ExecuteUpdate/ExecuteDelete and raw SQL bypass this guard (the intended retention-purge path); DB-level enforcement is planned for Phase 10.
     private static void Guard(DbContext? context)
     {
         if (context is null)
@@ -31,7 +31,7 @@ public sealed class AuditLogAppendOnlyInterceptor : SaveChangesInterceptor
         if (context.ChangeTracker.Entries<AuditLog>()
             .Any(e => e.State is EntityState.Modified or EntityState.Deleted))
         {
-            throw new DomainException("AuditLog entries are append-only and cannot be modified or deleted.");
+            throw new InvalidOperationException("AuditLog entries are append-only and cannot be modified or deleted.");
         }
     }
 }

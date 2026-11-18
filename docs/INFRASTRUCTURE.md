@@ -33,7 +33,7 @@ Apply migrations:
 
 ```bash
 export Database__ConnectionString="Server=127.0.0.1,1433;Database=EnterpriseRag;User Id=sa;Password=<pw>;TrustServerCertificate=True"
-dotnet ef database update --project src/EnterpriseRag.Infrastructure --startup-project src/EnterpriseRag.Infrastructure
+dotnet ef database update --configuration Release --startup-project src/EnterpriseRag.Infrastructure --project src/EnterpriseRag.Infrastructure
 ```
 
 ### Ollama

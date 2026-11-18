@@ -96,6 +96,7 @@ public sealed class PersistenceTests(SqlServerFixture fixture)
         Assert.Equal("User", loaded.TargetType);
         Assert.Equal("42", loaded.TargetId);
         Assert.Equal(FixedNow, loaded.OccurredAt);
+        Assert.Equal(DateTimeKind.Utc, loaded.OccurredAt.Kind);
         Assert.Equal("{\"ip\":\"1.2.3.4\"}", loaded.DetailsJson);
     }
 
@@ -110,11 +111,67 @@ public sealed class PersistenceTests(SqlServerFixture fixture)
         await ctx.SaveChangesAsync();
 
         log.Action = "B";
-        await Assert.ThrowsAsync<DomainException>(() => ctx.SaveChangesAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ctx.SaveChangesAsync());
 
         ctx.ChangeTracker.Clear();
         ctx.AuditLogs.Remove(new AuditLog { Id = log.Id, Action = "A", OccurredAt = FixedNow });
-        await Assert.ThrowsAsync<DomainException>(() => ctx.SaveChangesAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ctx.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task AuditableEntity_DatesReloadWithUtcKind()
+    {
+        var cs = fixture.NewDatabaseConnectionString();
+        await using var ctx = NewTestContext(cs, FixedNow);
+        await ctx.Database.EnsureCreatedAsync();
+        var item = new TestSoftDeletable { Id = Guid.NewGuid(), Name = "a" };
+        ctx.Items.Add(item);
+        await ctx.SaveChangesAsync();
+        item.MarkDeleted(FixedNow);
+        await ctx.SaveChangesAsync();
+
+        await using var reader = NewTestContext(cs, FixedNow);
+        var loaded = await reader.Items.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(DateTimeKind.Utc, loaded.CreatedAt.Kind);
+        Assert.Equal(DateTimeKind.Utc, loaded.DeletedAt!.Value.Kind);
+        Assert.Equal(FixedNow, loaded.CreatedAt);
+    }
+
+    [Fact]
+    public async Task SaveChanges_RejectsNonUtcDateTime()
+    {
+        var cs = fixture.NewDatabaseConnectionString();
+        await using var ctx = NewAppContext(cs);
+        await ctx.Database.EnsureCreatedAsync();
+        ctx.AuditLogs.Add(new AuditLog
+        {
+            Id = Guid.NewGuid(), Action = "A", OccurredAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Unspecified),
+        });
+
+        await Assert.ThrowsAnyAsync<Exception>(() => ctx.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Modify_DoesNotChangeCreatedAtOrCreatedBy()
+    {
+        var cs = fixture.NewDatabaseConnectionString();
+        await using var ctx = NewTestContext(cs, FixedNow);
+        await ctx.Database.EnsureCreatedAsync();
+        ctx.Items.Add(new TestSoftDeletable { Id = Guid.NewGuid(), Name = "a" });
+        await ctx.SaveChangesAsync();
+
+        await using var ctx2 = NewTestContext(cs, FixedNow.AddHours(1), "u2");
+        var loaded = await ctx2.Items.SingleAsync();
+        loaded.Name = "b";
+        loaded.CreatedAt = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        loaded.CreatedBy = "attacker";
+        await ctx2.SaveChangesAsync();
+
+        await using var reader = NewTestContext(cs, FixedNow);
+        var stored = await reader.Items.SingleAsync();
+        Assert.Equal("b", stored.Name);
+        Assert.Equal(FixedNow, stored.CreatedAt);
+        Assert.Equal("u1", stored.CreatedBy);
     }
 
     [Fact]
@@ -125,6 +182,7 @@ public sealed class PersistenceTests(SqlServerFixture fixture)
         await ctx.Database.MigrateAsync();
 
         Assert.Empty(await ctx.Database.GetPendingMigrationsAsync());
+        Assert.False(ctx.Database.HasPendingModelChanges());
         Assert.Contains("InitialCreate", (await ctx.Database.GetAppliedMigrationsAsync()).Single());
         Assert.False(await ctx.AuditLogs.AnyAsync());
     }

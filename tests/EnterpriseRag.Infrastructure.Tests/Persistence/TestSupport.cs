@@ -24,6 +24,9 @@ public sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbC
 {
     public DbSet<TestSoftDeletable> Items => Set<TestSoftDeletable>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
+        configurationBuilder.ApplyUtcDateTimeConvention();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TestSoftDeletable>(b => b.HasKey(e => e.Id));

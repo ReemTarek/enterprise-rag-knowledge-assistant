@@ -5,7 +5,4 @@
     <ProjectReference Include="..\EnterpriseRag.Shared\EnterpriseRag.Shared.csproj" />
   </ItemGroup>
 
-  <PropertyGroup>
-  </PropertyGroup>
-
 </Project>

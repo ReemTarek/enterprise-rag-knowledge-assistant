@@ -36,4 +36,14 @@ public class AuditableEntityTests
         Assert.Throws<DomainException>(() => entity.MarkDeleted(DateTime.Now));
         Assert.False(entity.IsDeleted);
     }
+
+    [Fact]
+    public void MarkDeleted_WithUnspecifiedKind_ThrowsDomainException()
+    {
+        var entity = new TestEntity();
+        var unspecified = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Unspecified);
+
+        Assert.Throws<DomainException>(() => entity.MarkDeleted(unspecified));
+        Assert.False(entity.IsDeleted);
+    }
 }
