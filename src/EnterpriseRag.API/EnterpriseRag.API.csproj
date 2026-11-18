@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EnterpriseRag.Domain\EnterpriseRag.Domain.csproj" />
     <ProjectReference Include="..\EnterpriseRag.Application\EnterpriseRag.Application.csproj" />
     <ProjectReference Include="..\EnterpriseRag.Infrastructure\EnterpriseRag.Infrastructure.csproj" />
     <ProjectReference Include="..\EnterpriseRag.Shared\EnterpriseRag.Shared.csproj" />
