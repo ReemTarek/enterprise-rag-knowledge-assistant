@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\EnterpriseRag.Domain\EnterpriseRag.Domain.csproj" />
+    <ProjectReference Include="..\EnterpriseRag.Shared\EnterpriseRag.Shared.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+</Project>

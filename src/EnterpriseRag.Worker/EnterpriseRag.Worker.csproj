@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <UserSecretsId>dotnet-EnterpriseRag.Worker-54b91d47-8b43-4379-822a-48d54cb8241a</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EnterpriseRag.Application\EnterpriseRag.Application.csproj" />
+    <ProjectReference Include="..\EnterpriseRag.Infrastructure\EnterpriseRag.Infrastructure.csproj" />
+    <ProjectReference Include="..\EnterpriseRag.Shared\EnterpriseRag.Shared.csproj" />
+  </ItemGroup>
+</Project>
