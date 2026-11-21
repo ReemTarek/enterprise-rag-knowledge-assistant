@@ -116,6 +116,26 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ChangePassword_RateLimited_After10AttemptsPerMinute_Returns429()
+    {
+        // The password endpoint is a current-password oracle, so it shares the login limit (10/min per IP).
+        var (id, _) = await NewUserAsync();
+        var token = await KnowledgeBaseApi.TokenForAsync(_factory, id); // minted: no login consumes the bucket
+        for (var i = 0; i < 10; i++)
+        {
+            var attempt = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", token,
+                body: new { currentPassword = "Wrong-Password-999", newPassword = NewPassword });
+            Assert.Equal(HttpStatusCode.BadRequest, attempt.StatusCode);
+        }
+
+        var limited = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", token,
+            body: new { currentPassword = Password, newPassword = NewPassword });
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.True(limited.Headers.Contains("Retry-After"));
+    }
+
+    [Fact]
     public async Task Refresh_WithCookie_RotatesCookie()
     {
         var (_, email) = await NewUserAsync();

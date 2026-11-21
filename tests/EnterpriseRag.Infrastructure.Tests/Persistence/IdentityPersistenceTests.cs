@@ -231,15 +231,119 @@ public sealed class IdentityPersistenceTests(SqlServerFixture fixture)
             var db = s.GetRequiredService<IAppDbContext>();
             var loaded = await s.GetRequiredService<IAsyncQueryExecutor>()
                 .FirstOrDefaultAsync(db.KnowledgeBases.Where(k => k.Id == kb.Id), CancellationToken.None);
-            db.SetExpectedRowVersion(loaded!, staleVersion);
-            loaded!.Rename("Mine", null);
-            await Assert.ThrowsAsync<ConcurrencyConflictException>(() => db.SaveChangesAsync(CancellationToken.None));
+            // The port may throw at SetExpectedRowVersion (the EF implementation does) or at save.
+            await Assert.ThrowsAsync<ConcurrencyConflictException>(async () =>
+            {
+                db.SetExpectedRowVersion(loaded!, staleVersion);
+                loaded!.Rename("Mine", null);
+                await db.SaveChangesAsync(CancellationToken.None);
+            });
         });
 
         await InScopeAsync(sp, async s =>
         {
             var db = s.GetRequiredService<AppDbContext>();
             Assert.Equal("Renamed", (await db.KnowledgeBases.SingleAsync()).Name);
+        });
+    }
+
+    [Fact]
+    public async Task KnowledgeBase_StaleRowVersion_UnchangedValues_ThrowsConcurrencyConflict()
+    {
+        // EF sends no UPDATE when nothing changed, so a stale precondition must be caught before the save.
+        await using var sp = await MigratedAsync();
+        var owner = await AddUserAsync(sp, "owner@example.com");
+        var kb = KnowledgeBase.Create("Docs", "d", owner.Id);
+        await InScopeAsync(sp, async s =>
+        {
+            var db = s.GetRequiredService<IAppDbContext>();
+            db.Add(kb);
+            await db.SaveChangesAsync(CancellationToken.None);
+        });
+        var staleVersion = kb.RowVersion.ToArray();
+        await InScopeAsync(sp, async s =>
+        {
+            var db = s.GetRequiredService<AppDbContext>();
+            (await db.KnowledgeBases.SingleAsync()).Rename("Renamed", "d");
+            await db.SaveChangesAsync();
+        });
+
+        await InScopeAsync(sp, async s =>
+        {
+            var db = s.GetRequiredService<IAppDbContext>();
+            var loaded = await s.GetRequiredService<IAsyncQueryExecutor>()
+                .FirstOrDefaultAsync(db.KnowledgeBases.Where(k => k.Id == kb.Id), CancellationToken.None);
+            await Assert.ThrowsAsync<ConcurrencyConflictException>(async () =>
+            {
+                db.SetExpectedRowVersion(loaded!, staleVersion);
+                loaded!.Rename("Renamed", "d"); // identical values: no UPDATE would be issued
+                await db.SaveChangesAsync(CancellationToken.None);
+            });
+        });
+    }
+
+    [Fact]
+    public async Task KnowledgeBase_ConcurrentMembershipChange_WithoutExpectedVersion_ThrowsPlainConflict()
+    {
+        // Membership endpoints take no If-Match, so losing a race is a 409 conflict, not a 412 failed precondition.
+        await using var sp = await MigratedAsync();
+        var owner = await AddUserAsync(sp, "owner@example.com");
+        var first = await AddUserAsync(sp, "first@example.com");
+        var second = await AddUserAsync(sp, "second@example.com");
+        var kb = KnowledgeBase.Create("Docs", null, owner.Id);
+        await InScopeAsync(sp, async s =>
+        {
+            var db = s.GetRequiredService<IAppDbContext>();
+            db.Add(kb);
+            await db.SaveChangesAsync(CancellationToken.None);
+        });
+
+        await using var scopeA = sp.CreateAsyncScope();
+        await using var scopeB = sp.CreateAsyncScope();
+        var dbA = scopeA.ServiceProvider.GetRequiredService<IAppDbContext>();
+        var dbB = scopeB.ServiceProvider.GetRequiredService<IAppDbContext>();
+        var query = sp.GetRequiredService<IAsyncQueryExecutor>();
+        var kbA = await query.FirstOrDefaultAsync(dbA.KnowledgeBases.Where(k => k.Id == kb.Id), CancellationToken.None);
+        var kbB = await query.FirstOrDefaultAsync(dbB.KnowledgeBases.Where(k => k.Id == kb.Id), CancellationToken.None);
+
+        kbA!.AddMember(first.Id, KnowledgeBaseRole.Viewer);
+        await dbA.SaveChangesAsync(CancellationToken.None);
+        kbB!.AddMember(second.Id, KnowledgeBaseRole.Viewer);
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => dbB.SaveChangesAsync(CancellationToken.None));
+
+        Assert.IsNotType<ConcurrencyConflictException>(ex);
+    }
+
+    [Fact]
+    public async Task KnowledgeBase_ChangedBetweenLoadAndSave_ThrowsConcurrencyConflict()
+    {
+        await using var sp = await MigratedAsync();
+        var owner = await AddUserAsync(sp, "owner@example.com");
+        var kb = KnowledgeBase.Create("Docs", null, owner.Id);
+        await InScopeAsync(sp, async s =>
+        {
+            var db = s.GetRequiredService<IAppDbContext>();
+            db.Add(kb);
+            await db.SaveChangesAsync(CancellationToken.None);
+        });
+
+        await InScopeAsync(sp, async s =>
+        {
+            var db = s.GetRequiredService<IAppDbContext>();
+            var loaded = await s.GetRequiredService<IAsyncQueryExecutor>()
+                .FirstOrDefaultAsync(db.KnowledgeBases.Where(k => k.Id == kb.Id), CancellationToken.None);
+            db.SetExpectedRowVersion(loaded!, kb.RowVersion); // current at load time
+
+            // Someone else commits in between.
+            await InScopeAsync(sp, async other =>
+            {
+                var otherDb = other.GetRequiredService<AppDbContext>();
+                (await otherDb.KnowledgeBases.SingleAsync()).Rename("Theirs", null);
+                await otherDb.SaveChangesAsync();
+            });
+
+            loaded!.Rename("Mine", null);
+            await Assert.ThrowsAsync<ConcurrencyConflictException>(() => db.SaveChangesAsync(CancellationToken.None));
         });
     }
 

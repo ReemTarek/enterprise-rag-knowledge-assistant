@@ -53,6 +53,7 @@ public sealed class AuthController : ControllerBase
     /// <c>/api/auth</c> so the browser sends the refresh cookie (Path=/api/auth), which identifies the session to keep.
     /// </summary>
     [AllowWhilePasswordChangeRequired]
+    [EnableRateLimiting(AuthenticationSetup.LoginRateLimitPolicy)] // current-password oracle: shares the login bucket
     [HttpPost("password")]
     public async Task<IActionResult> ChangePassword(
         ChangePasswordRequest request, [FromServices] ChangePasswordHandler handler, CancellationToken ct)

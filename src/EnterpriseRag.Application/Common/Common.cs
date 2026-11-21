@@ -17,12 +17,19 @@ public static class Paging
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
 
-    /// <summary>Normalizes paging input: page ≥ 1; page size defaults to 20 when &lt; 1 and is capped at 100.</summary>
+    /// <summary>The largest page whose skip still fits in an <see cref="int"/> at <see cref="MaxPageSize"/>.</summary>
+    public const int MaxPage = int.MaxValue / MaxPageSize;
+
+    /// <summary>
+    /// Normalizes paging input: page between 1 and <see cref="MaxPage"/> (larger pages are clamped, so they return an
+    /// empty page instead of overflowing); page size defaults to 20 when &lt; 1 and is capped at 100.
+    /// </summary>
     public static (int Page, int PageSize, int Skip) Normalize(int page, int pageSize)
     {
-        var p = Math.Max(1, page);
+        var p = Math.Clamp(page, 1, MaxPage);
         var size = pageSize < 1 ? DefaultPageSize : Math.Min(pageSize, MaxPageSize);
-        return (p, size, (p - 1) * size);
+        var skip = ((long)p - 1) * size; // <= (MaxPage - 1) * MaxPageSize < int.MaxValue
+        return (p, size, (int)skip);
     }
 }
 

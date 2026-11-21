@@ -3,6 +3,7 @@ using EnterpriseRag.Application.Common;
 using EnterpriseRag.Domain.Identity;
 using EnterpriseRag.Infrastructure.Persistence;
 using EnterpriseRag.Shared.Options;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -12,9 +13,10 @@ using Microsoft.Extensions.Options;
 namespace EnterpriseRag.Infrastructure.Seed;
 
 /// <summary>
-/// Creates the first administrator at startup when the database has no live users. It never runs migrations:
-/// an unreachable or not-yet-migrated database only logs a warning. A reachable, migrated, empty database without
-/// valid <c>Seed</c> configuration fails startup, so a deployment can never come up with no way to sign in.
+/// Creates the first administrator at startup when the database has no live users. It never runs migrations: an
+/// unreachable database, or one whose schema does not have the Users table yet (SQL errors 207/208), only logs a
+/// warning. Otherwise - even with a later migration still pending - an empty Users table without valid <c>Seed</c>
+/// configuration fails startup, so a deployment can never come up with no way to sign in.
 /// </summary>
 public sealed partial class AdminSeedHostedService(
     IServiceScopeFactory scopeFactory,
@@ -23,6 +25,10 @@ public sealed partial class AdminSeedHostedService(
     ILogger<AdminSeedHostedService> logger) : IHostedService
 {
     public const string AdminDisplayName = "Administrator";
+
+    // SQL Server: 207 = invalid column name, 208 = invalid object name (the schema is missing or behind).
+    private const int InvalidColumnName = 207;
+    private const int InvalidObjectName = 208;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -35,14 +41,25 @@ public sealed partial class AdminSeedHostedService(
             return;
         }
 
-        if ((await db.Database.GetPendingMigrationsAsync(cancellationToken)).Any())
+        // The soft-delete filter applies: only live users count. No pending-migration gate: a database that already has
+        // the Users table is judged by its contents, so a partially migrated, empty one still demands Seed config.
+        bool hasUsers;
+        try
         {
-            LogPendingMigrations(logger);
+            hasUsers = await db.Users.AnyAsync(cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number is InvalidObjectName or InvalidColumnName)
+        {
+            LogSchemaMissing(logger);
+            return;
+        }
+        catch (SqlException ex) when (IsConnectivityFailure(ex))
+        {
+            LogDatabaseUnreachable(logger);
             return;
         }
 
-        // The soft-delete filter applies: only live users count.
-        if (await db.Users.AnyAsync(cancellationToken))
+        if (hasUsers)
         {
             return;
         }
@@ -77,6 +94,9 @@ public sealed partial class AdminSeedHostedService(
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
+    /// <summary>Network/login-level failures (the connection dropped after the probe): warn, never crash startup.</summary>
+    private static bool IsConnectivityFailure(SqlException ex) => ex.Class >= 20 || ex.Number is -2 or 53 or 4060 or 18456 or 10054 or 10060;
+
     private static async Task<bool> CanConnectAsync(AppDbContext db, CancellationToken cancellationToken)
     {
         try
@@ -93,8 +113,8 @@ public sealed partial class AdminSeedHostedService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Admin seed skipped: the database is unreachable.")]
     private static partial void LogDatabaseUnreachable(ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Admin seed skipped: the database has pending migrations. Apply migrations and restart.")]
-    private static partial void LogPendingMigrations(ILogger logger);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Admin seed skipped: the Users table does not exist yet. Apply migrations and restart.")]
+    private static partial void LogSchemaMissing(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Admin seed skipped: another instance created the administrator.")]
     private static partial void LogAlreadySeeded(ILogger logger);

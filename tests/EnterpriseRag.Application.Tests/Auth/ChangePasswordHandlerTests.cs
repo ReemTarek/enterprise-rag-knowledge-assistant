@@ -35,6 +35,26 @@ public class ChangePasswordHandlerTests
     }
 
     [Fact]
+    public async Task ChangePassword_WrongCurrentPassword_CountsTowardsLockout()
+    {
+        var user = _h.AddUser("frank@example.com");
+        _h.SignInAs(user);
+
+        for (var i = 0; i < _h.Security.MaxFailedLogins; i++)
+        {
+            await Assert.ThrowsAsync<ValidationException>(() =>
+                _h.ChangePassword().HandleAsync(new ChangePasswordCommand("Not-The-Password-1", "Brand-New-Pass-99"), CancellationToken.None));
+        }
+
+        Assert.True(user.IsLockedOut(_h.Clock.UtcNow));
+        // While locked out even the correct current password is refused (same error) and login is refused too.
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _h.ChangePassword().HandleAsync(new ChangePasswordCommand(TestHarness.DefaultPassword, "Brand-New-Pass-99"), CancellationToken.None));
+        Assert.True(_h.Hasher.Verify(user.PasswordHash, TestHarness.DefaultPassword));
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() => LoginAsync("frank@example.com"));
+    }
+
+    [Fact]
     public async Task ChangePassword_Valid_UpdatesHash_ClearsMustChange_AndAudits()
     {
         var user = _h.AddUser("frank@example.com", mustChange: true);

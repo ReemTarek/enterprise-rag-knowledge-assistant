@@ -36,14 +36,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     void IAppDbContext.Add<T>(T entity) => Set<T>().Add(entity);
 
-    public void SetExpectedRowVersion(KnowledgeBase knowledgeBase, byte[] rowVersion) =>
-        Entry(knowledgeBase).Property(k => k.RowVersion).OriginalValue = rowVersion;
+    private const string StaleMessage = "The record was modified by another request. Reload it and try again.";
+
+    // Entities whose row version the CLIENT supplied (If-Match). Only their concurrency failures are 412s.
+    private readonly HashSet<object> _clientPreconditioned = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
-    /// Persists tracked changes. Optimistic-concurrency failures on a knowledge base surface as
-    /// <see cref="ConcurrencyConflictException"/>; other concurrency failures and unique-key violations as
-    /// <see cref="ConflictException"/>; in both cases the change tracker is cleared so the failed changes are never
-    /// re-sent by a later save in the same scope (entities must be re-queried afterwards).
+    /// Compares the client's row version with the loaded one immediately (EF sends no UPDATE when nothing changed, so
+    /// a stale precondition could otherwise pass), then makes it the original value so a change committed between
+    /// load and save is caught by the UPDATE's WHERE clause. Either way: <see cref="ConcurrencyConflictException"/>.
+    /// </summary>
+    public void SetExpectedRowVersion(KnowledgeBase knowledgeBase, byte[] rowVersion)
+    {
+        var property = Entry(knowledgeBase).Property(k => k.RowVersion);
+        if (!property.OriginalValue.AsSpan().SequenceEqual(rowVersion))
+        {
+            throw new ConcurrencyConflictException(StaleMessage);
+        }
+
+        property.OriginalValue = rowVersion;
+        _clientPreconditioned.Add(knowledgeBase);
+    }
+
+    /// <summary>
+    /// Persists tracked changes. A concurrency failure on an entity whose row version the client supplied
+    /// (<see cref="SetExpectedRowVersion"/>, i.e. If-Match) surfaces as <see cref="ConcurrencyConflictException"/>
+    /// (412); any other concurrency failure (e.g. two concurrent membership changes, a refresh-token rotation race)
+    /// and unique-key violations as <see cref="ConflictException"/> (409). In every case the change tracker is
+    /// cleared so the failed changes are never re-sent by a later save in the same scope (entities must be
+    /// re-queried afterwards).
     /// </summary>
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
@@ -53,18 +74,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         }
         catch (DbUpdateConcurrencyException ex)
         {
+            // Only a client-supplied precondition (If-Match) failing is a 412; losing any other race is a 409.
+            var clientPrecondition = ex.Entries.Any(e => _clientPreconditioned.Contains(e.Entity));
             ChangeTracker.Clear();
-            const string message = "The record was modified by another request. Reload it and try again.";
-            // Knowledge bases carry a client-visible row version (ETag/If-Match): a mismatch is a failed precondition.
-            // Other concurrency failures (e.g. a refresh-token rotation race) stay plain conflicts.
-            throw ex.Entries.Any(e => e.Entity is KnowledgeBase)
-                ? new ConcurrencyConflictException(message)
-                : new ConflictException(message);
+            _clientPreconditioned.Clear();
+            throw clientPrecondition
+                ? new ConcurrencyConflictException(StaleMessage)
+                : new ConflictException(StaleMessage);
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException sql
                                            && sql.Number is DuplicateKeyInUniqueIndex or UniqueConstraintViolation)
         {
             ChangeTracker.Clear();
+            _clientPreconditioned.Clear();
             throw new ConflictException(sql.Message.Contains(UserConfiguration.EmailIndexName, StringComparison.Ordinal)
                 ? "A user with this email address already exists."
                 : "The record conflicts with an existing record.");

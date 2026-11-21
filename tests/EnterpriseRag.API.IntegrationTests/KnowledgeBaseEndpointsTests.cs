@@ -141,6 +141,20 @@ public sealed class KnowledgeBaseEndpointsTests(ApiDatabaseFixture db) : IAsyncL
     }
 
     [Fact]
+    public async Task List_HugePage_Returns200_WithEmptyPage()
+    {
+        var owner = await CreateUserAsync(_factory, "owner");
+        await CreateKbAsync(_client, owner.Token);
+
+        var response = await SendAsync(_client, HttpMethod.Get, $"{Root}?page=2147483647", owner.Token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await JsonAsync(response);
+        Assert.Equal(0, body.GetProperty("items").GetArrayLength());
+        Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
     public async Task Update_WithCurrentRowVersion_Returns200_WithNewETag()
     {
         var owner = await CreateUserAsync(_factory, "owner");
@@ -173,6 +187,22 @@ public sealed class KnowledgeBaseEndpointsTests(ApiDatabaseFixture db) : IAsyncL
         Assert.Equal(412, body.GetProperty("status").GetInt32());
         Assert.True(body.TryGetProperty("correlationId", out _));
         Assert.Equal("First", (await SnapshotAsync(_factory, kb)).Name);
+    }
+
+    [Fact]
+    public async Task Update_WithStaleRowVersion_UnchangedBody_Returns412()
+    {
+        // The body equals the current state, so EF would send no UPDATE: the stale precondition must still be rejected.
+        var owner = await CreateUserAsync(_factory, "owner");
+        var (kb, stale) = await CreateKbAsync(_client, owner.Token);
+        var first = await SendAsync(_client, HttpMethod.Put, $"{Root}/{kb}", owner.Token, new { name = "First", description = "d" }, Quote(stale));
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var current = await RowVersionAsync(_client, owner.Token, kb);
+
+        var second = await SendAsync(_client, HttpMethod.Put, $"{Root}/{kb}", owner.Token, new { name = "First", description = "d" }, Quote(stale));
+
+        Assert.Equal(HttpStatusCode.PreconditionFailed, second.StatusCode);
+        Assert.Equal(current, await RowVersionAsync(_client, owner.Token, kb));
     }
 
     [Fact]

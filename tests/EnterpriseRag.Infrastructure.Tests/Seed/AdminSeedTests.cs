@@ -4,6 +4,8 @@ using EnterpriseRag.Infrastructure.Persistence;
 using EnterpriseRag.Infrastructure.Seed;
 using EnterpriseRag.Infrastructure.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -116,6 +118,40 @@ public sealed class AdminSeedTests(SqlServerFixture fixture)
         await using var sp = Build(
             Seed(email: null, password: null),
             "Server=127.0.0.1,1;Database=Fake;User Id=x;Password=x;Connect Timeout=2;TrustServerCertificate=True");
+
+        await Seeder(sp).StartAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task AdminSeed_PartiallyMigrated_UsersTableExists_EmptyAndMissingConfig_Throws()
+    {
+        // A later migration is pending, but the Users table is there and empty: a deployment that comes up like this
+        // would have no way to sign in, so startup must fail (the old gate silently skipped on any pending migration).
+        await using var sp = Build(Seed(email: null, password: null));
+        await InfrastructureHarness.MigrateAsync(sp);
+        await using (var scope = sp.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var latest = db.Database.GetMigrations().Last();
+            await db.Database.ExecuteSqlAsync($"DELETE FROM [__EFMigrationsHistory] WHERE [MigrationId] = {latest}");
+            Assert.NotEmpty(await db.Database.GetPendingMigrationsAsync());
+        }
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Seeder(sp).StartAsync(CancellationToken.None));
+
+        Assert.Contains("Seed:AdminEmail", ex.Message);
+    }
+
+    [Fact]
+    public async Task AdminSeed_SchemaBehind_UsersTableMissing_DoesNotThrow()
+    {
+        await using var sp = Build(Seed(email: null, password: null));
+        await using (var scope = sp.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Only the first migration (AuditLogs): the database exists but has no Users table yet.
+            await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
+        }
 
         await Seeder(sp).StartAsync(CancellationToken.None);
     }

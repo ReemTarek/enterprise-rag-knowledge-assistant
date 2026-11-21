@@ -52,13 +52,22 @@ public sealed class ChangePasswordHandler(
         var user = await query.FirstOrDefaultAsync(db.Users.Where(u => u.Id == userId && !u.IsDeleted && u.IsActive), ct)
             ?? throw new AuthenticationFailedException();
 
-        if (!hasher.Verify(user.PasswordHash, command.CurrentPassword))
+        // The endpoint is a current-password oracle: wrong guesses count towards the same lockout as failed logins, and
+        // while locked out even the right password is refused with the same message (nothing is verified).
+        var now = clock.UtcNow;
+        if (user.IsLockedOut(now))
         {
-            throw new ValidationException(
-                [new ValidationFailure(nameof(ChangePasswordCommand.CurrentPassword), "The current password is incorrect.")]);
+            throw WrongCurrentPassword();
         }
 
-        var now = clock.UtcNow;
+        if (!hasher.Verify(user.PasswordHash, command.CurrentPassword))
+        {
+            user.RegisterFailedLogin(now, security.MaxFailedLogins, TimeSpan.FromMinutes(security.LockoutMinutes));
+            await db.SaveChangesAsync(ct);
+            throw WrongCurrentPassword();
+        }
+
+        user.RegisterSuccessfulLogin();
         var keepFamily = await CurrentFamilyAsync(command.CurrentRefreshTokenRaw, userId, now, ct);
 
         user.SetPassword(hasher.Hash(command.NewPassword), mustChange: false);
@@ -74,6 +83,9 @@ public sealed class ChangePasswordHandler(
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(AuditActions.PasswordChanged, AuditTargets.User, user.Id.ToString(), null, ct);
     }
+
+    private static ValidationException WrongCurrentPassword() =>
+        new([new ValidationFailure(nameof(ChangePasswordCommand.CurrentPassword), "The current password is incorrect.")]);
 
     /// <summary>The family of the presented refresh token when it is the caller's own, active and unexpired; else null.</summary>
     private async Task<Guid?> CurrentFamilyAsync(string? raw, Guid userId, DateTime now, CancellationToken ct)

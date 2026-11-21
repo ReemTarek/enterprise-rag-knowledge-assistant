@@ -189,6 +189,19 @@ public sealed class AdminUsersTests(ApiDatabaseFixture db) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AdminList_HugePage_Returns200_WithEmptyPage()
+    {
+        var admin = await AdminTokenAsync();
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/admin/users?page=2147483647&pageSize=100", admin);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await JsonAsync(response);
+        Assert.Equal(0, body.GetProperty("items").GetArrayLength());
+        Assert.True(body.GetProperty("totalCount").GetInt32() >= 1);
+    }
+
+    [Fact]
     public async Task AdminCannotDeactivateSelf()
     {
         var admin = await AdminTokenAsync();
