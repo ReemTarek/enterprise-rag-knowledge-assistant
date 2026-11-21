@@ -116,6 +116,59 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Login_And_Refresh_Responses_AreNotCacheable()
+    {
+        var (_, email) = await NewUserAsync();
+
+        var login = await AuthHttp.LoginAsync(_client, email, Password);
+        var refresh = await AuthHttp.RefreshAsync(_client, login.RefreshToken);
+
+        foreach (var response in new[] { login.Response, refresh.Response })
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore, response.Headers.CacheControl?.ToString());
+            Assert.Contains("no-cache", response.Headers.Pragma.ToString());
+        }
+    }
+
+    [Fact]
+    public async Task Refresh_Failed_DeletesDeadCookie()
+    {
+        var unknown = await AuthHttp.RefreshAsync(_client, "not-a-real-token");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, unknown.Response.StatusCode);
+        AssertClearedCookie(unknown.Response);
+        Assert.Equal("Invalid credentials.", unknown.Body.GetProperty("detail").GetString());
+        Assert.Equal(EnterpriseRag.API.Http.ProblemTypes.Unauthorized, unknown.Body.GetProperty("type").GetString());
+        Assert.True(unknown.Body.TryGetProperty("correlationId", out _));
+    }
+
+    [Fact]
+    public async Task Login_PasswordLongerThan128_Returns401Generic()
+    {
+        var (_, email) = await NewUserAsync();
+
+        var login = await AuthHttp.LoginAsync(_client, email, new string('A', 100_000));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, login.Response.StatusCode);
+        Assert.Equal("Invalid credentials.", login.Body.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task ChangePassword_NewPasswordLongerThan128_Returns400()
+    {
+        var (_, email) = await NewUserAsync();
+        var login = await AuthHttp.LoginAsync(_client, email, Password);
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", login.AccessToken,
+            body: new { currentPassword = Password, newPassword = "Aa1" + new string('x', 126) });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(doc.RootElement.GetProperty("errors").TryGetProperty("NewPassword", out _));
+    }
+
+    [Fact]
     public async Task ChangePassword_RateLimited_After10AttemptsPerMinute_Returns429()
     {
         // The password endpoint is a current-password oracle, so it shares the login limit (10/min per IP).

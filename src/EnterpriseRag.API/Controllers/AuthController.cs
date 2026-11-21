@@ -1,6 +1,8 @@
 using EnterpriseRag.API.Auth;
 using EnterpriseRag.API.Contracts;
+using EnterpriseRag.API.Http;
 using EnterpriseRag.Application.Auth;
+using EnterpriseRag.Application.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -20,17 +22,42 @@ public sealed class AuthController : ControllerBase
     {
         var result = await handler.HandleAsync(new LoginCommand(request.Email, request.Password), ct);
         RefreshCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAtUtc);
+        NoStore();
         return Ok(AccessTokenResponse.From(result));
     }
 
-    /// <summary>Reads the refresh token from the cookie only; a token in the body is ignored.</summary>
+    /// <summary>
+    /// Reads the refresh token from the cookie only; a token in the body is ignored. A failed refresh deletes the
+    /// (dead) cookie and answers the same generic 401 as every other credential failure. It is written here rather
+    /// than thrown because the exception middleware clears response headers, which would drop the deletion.
+    /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationSetup.RefreshRateLimitPolicy)]
     [HttpPost("refresh")]
     public async Task<ActionResult<AccessTokenResponse>> Refresh([FromServices] RefreshHandler handler, CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new RefreshCommand(RefreshCookie.Read(Request) ?? string.Empty), ct);
+        var presented = RefreshCookie.Read(Request);
+        AuthResult result;
+        try
+        {
+            result = await handler.HandleAsync(new RefreshCommand(presented ?? string.Empty), ct);
+        }
+        catch (AuthenticationFailedException)
+        {
+            if (presented is not null)
+            {
+                RefreshCookie.Delete(Response); // only a cookie the browser actually sent is dead
+            }
+
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Unauthorized",
+                detail: AuthenticationFailedException.GenericMessage,
+                type: ProblemTypes.Unauthorized);
+        }
+
         RefreshCookie.Append(Response, result.RefreshToken, result.RefreshTokenExpiresAtUtc);
+        NoStore();
         return Ok(AccessTokenResponse.From(result));
     }
 
@@ -61,5 +88,12 @@ public sealed class AuthController : ControllerBase
         await handler.HandleAsync(
             new ChangePasswordCommand(request.CurrentPassword, request.NewPassword, RefreshCookie.Read(Request)), ct);
         return NoContent();
+    }
+
+    /// <summary>Token-bearing responses must never be stored by browsers or intermediaries.</summary>
+    private void NoStore()
+    {
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.Pragma = "no-cache";
     }
 }

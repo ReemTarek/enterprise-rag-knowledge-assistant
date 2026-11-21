@@ -33,6 +33,13 @@ public sealed class LoginHandler(
         var password = command.Password ?? string.Empty;
         var now = clock.UtcNow;
 
+        // No account can have a longer password: fail generically without a lookup, a hash or a lockout count.
+        if (password.Length > PasswordPolicy.MaxLength)
+        {
+            await audit.LogAsync(AuditActions.LoginFailed, AuditTargets.User, null, new { reason = "password_too_long" }, ct);
+            throw new AuthenticationFailedException();
+        }
+
         var user = email.Length == 0
             ? null
             : await query.FirstOrDefaultAsync(db.Users.Where(u => u.Email == email && !u.IsDeleted), ct);

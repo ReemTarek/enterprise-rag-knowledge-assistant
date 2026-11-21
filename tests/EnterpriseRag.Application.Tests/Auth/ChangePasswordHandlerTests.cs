@@ -35,6 +35,34 @@ public class ChangePasswordHandlerTests
     }
 
     [Fact]
+    public async Task ChangePassword_PasswordsLongerThan128_FailValidation_WithoutHashing()
+    {
+        var user = _h.AddUser("frank@example.com");
+        _h.SignInAs(user);
+        var tooLong = "Aa1" + new string('x', 126); // 129 characters, otherwise policy-compliant
+
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _h.ChangePassword().HandleAsync(new ChangePasswordCommand(TestHarness.DefaultPassword, tooLong), CancellationToken.None));
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            _h.ChangePassword().HandleAsync(new ChangePasswordCommand(tooLong, "Brand-New-Pass-99"), CancellationToken.None));
+
+        Assert.Equal(0, _h.Hasher.VerifyCount);
+        Assert.Equal(0, user.FailedLoginCount);
+    }
+
+    [Fact]
+    public async Task ChangePassword_PasswordOf128_IsAccepted()
+    {
+        var user = _h.AddUser("frank@example.com");
+        _h.SignInAs(user);
+        var longest = "Aa1" + new string('x', 125); // exactly 128
+
+        await _h.ChangePassword().HandleAsync(new ChangePasswordCommand(TestHarness.DefaultPassword, longest), CancellationToken.None);
+
+        Assert.True(_h.Hasher.Verify(user.PasswordHash, longest));
+    }
+
+    [Fact]
     public async Task ChangePassword_WrongCurrentPassword_CountsTowardsLockout()
     {
         var user = _h.AddUser("frank@example.com");

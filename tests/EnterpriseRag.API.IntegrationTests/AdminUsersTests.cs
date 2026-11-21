@@ -201,6 +201,21 @@ public sealed class AdminUsersTests(ApiDatabaseFixture db) : IAsyncLifetime
         Assert.True(body.GetProperty("totalCount").GetInt32() >= 1);
     }
 
+    [Theory]
+    [InlineData(1)] // a defined value (Admin) as an integer
+    [InlineData(2)] // undefined
+    public async Task CreateUser_IntegerGlobalRole_Returns400(int role)
+    {
+        var admin = await AdminTokenAsync();
+        var email = ApiDatabaseFixture.UniqueEmail("introle");
+
+        var response = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/admin/users", admin,
+            body: new { email, displayName = "Int Role", globalRole = role });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await CreateAsync(_client, admin, email, "Admin")).StatusCode); // strings work
+    }
+
     [Fact]
     public async Task AdminCannotDeactivateSelf()
     {

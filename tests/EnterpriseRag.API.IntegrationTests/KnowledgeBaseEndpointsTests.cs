@@ -404,6 +404,26 @@ public sealed class KnowledgeBaseEndpointsTests(ApiDatabaseFixture db) : IAsyncL
         Assert.Equal(before, await SnapshotAsync(_factory, kb));
     }
 
+    [Theory]
+    [InlineData(2)]  // Owner as an integer
+    [InlineData(99)] // undefined
+    public async Task Members_IntegerRole_Returns400(int role)
+    {
+        var owner = await CreateUserAsync(_factory, "owner");
+        var member = await CreateUserAsync(_factory, "member");
+        var (kb, _) = await CreateKbAsync(_client, owner.Token);
+        await AddMemberAsync(_client, owner.Token, kb, member.Id, KnowledgeBaseRole.Viewer);
+        var candidate = await CreateUserAsync(_factory, "candidate");
+        var before = await SnapshotAsync(_factory, kb);
+
+        var add = await SendAsync(_client, HttpMethod.Post, $"{Root}/{kb}/members", owner.Token, new { userId = candidate.Id, role });
+        var change = await SendAsync(_client, HttpMethod.Put, $"{Root}/{kb}/members/{member.Id}", owner.Token, new { role });
+
+        Assert.Equal(HttpStatusCode.BadRequest, add.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, change.StatusCode);
+        Assert.Equal(before, await SnapshotAsync(_factory, kb));
+    }
+
     [Fact]
     public async Task AddMember_AlreadyMember_Returns409()
     {

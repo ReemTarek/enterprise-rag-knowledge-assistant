@@ -9,6 +9,19 @@ public class LoginHandlerTests
     private readonly TestHarness _h = new();
 
     [Fact]
+    public async Task Login_PasswordLongerThan128_FailsGenerically_WithoutHashingOrCounting()
+    {
+        var user = _h.AddUser("bob@example.com");
+        var huge = new string('A', 100_000);
+
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
+            _h.Login().HandleAsync(new LoginCommand("bob@example.com", huge), CancellationToken.None));
+
+        Assert.Equal(0, _h.Hasher.VerifyCount);
+        Assert.Equal(0, user.FailedLoginCount);
+    }
+
+    [Fact]
     public async Task Login_WrongPassword_And_UnknownEmail_ReturnSameFailure()
     {
         _h.AddUser("alice@example.com");

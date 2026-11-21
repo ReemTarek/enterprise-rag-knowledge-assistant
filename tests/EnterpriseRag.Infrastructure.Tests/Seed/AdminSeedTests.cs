@@ -54,6 +54,7 @@ public sealed class AdminSeedTests(SqlServerFixture fixture)
     [InlineData("admin@example.com", null)]
     [InlineData("", "")]
     [InlineData("admin@example.com", "Short-1")]
+    [InlineData("admin@example.com", "Aa1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")] // 129 characters
     public async Task AdminSeed_EmptyDb_MissingConfig_FailsStartupWithClearMessage(string? email, string? password)
     {
         await using var sp = Build(Seed(email, password));

@@ -17,7 +17,8 @@ public sealed class ChangePasswordValidator : AbstractValidator<ChangePasswordCo
 {
     public ChangePasswordValidator(SecurityOptions security)
     {
-        RuleFor(c => c.CurrentPassword).NotEmpty();
+        // Bounded before anything is hashed or verified (PBKDF2 over a megabyte-sized input is a cheap DoS).
+        RuleFor(c => c.CurrentPassword).NotEmpty().MaximumLength(PasswordPolicy.MaxLength);
         RuleFor(c => c.NewPassword).ApplyPasswordPolicy(security.MinPasswordLength);
         RuleFor(c => c.NewPassword)
             .NotEqual(c => c.CurrentPassword).WithMessage("The new password must differ from the current password.");
@@ -26,9 +27,13 @@ public sealed class ChangePasswordValidator : AbstractValidator<ChangePasswordCo
 
 public static class PasswordPolicy
 {
+    /// <summary>Upper bound for every password the system accepts (new, current, login, seed).</summary>
+    public const int MaxLength = 128;
+
     public static IRuleBuilderOptions<T, string> ApplyPasswordPolicy<T>(this IRuleBuilder<T, string> rule, int minLength) =>
         rule.NotEmpty()
             .MinimumLength(minLength)
+            .MaximumLength(MaxLength)
             .Matches("[A-Z]").WithMessage("Password must contain an upper-case letter.")
             .Matches("[a-z]").WithMessage("Password must contain a lower-case letter.")
             .Matches("[0-9]").WithMessage("Password must contain a digit.");

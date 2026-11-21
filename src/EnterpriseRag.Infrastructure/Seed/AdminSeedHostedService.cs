@@ -1,4 +1,5 @@
 using EnterpriseRag.Application.Abstractions;
+using EnterpriseRag.Application.Auth;
 using EnterpriseRag.Application.Common;
 using EnterpriseRag.Domain.Identity;
 using EnterpriseRag.Infrastructure.Persistence;
@@ -67,11 +68,12 @@ public sealed partial class AdminSeedHostedService(
         var seed = seedOptions.Value;
         var email = seed.AdminEmail?.Trim();
         var password = seed.AdminPassword;
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password) || password.Length < security.MinPasswordLength)
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password)
+            || password.Length < security.MinPasswordLength || password.Length > PasswordPolicy.MaxLength)
         {
             throw new InvalidOperationException(
                 "The database has no users, so an initial administrator must be seeded: configure Seed:AdminEmail and " +
-                $"Seed:AdminPassword (at least {security.MinPasswordLength} characters) via environment variables " +
+                $"Seed:AdminPassword ({security.MinPasswordLength} to {PasswordPolicy.MaxLength} characters) via environment variables " +
                 "(Seed__AdminEmail, Seed__AdminPassword) or a secret store.");
         }
 
