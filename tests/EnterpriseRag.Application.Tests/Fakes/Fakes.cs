@@ -67,7 +67,7 @@ public sealed class InMemoryAppDbContext : IAppDbContext
     {
         if (!knowledgeBase.RowVersion.AsSpan().SequenceEqual(rowVersion))
         {
-            throw new ConflictException("The knowledge base was modified by someone else.");
+            throw new ConcurrencyConflictException("The knowledge base was modified by someone else.");
         }
     }
 

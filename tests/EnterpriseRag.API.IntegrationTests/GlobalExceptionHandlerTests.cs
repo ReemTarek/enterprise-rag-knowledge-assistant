@@ -42,6 +42,7 @@ public sealed class GlobalExceptionHandlerTests
     [InlineData("notfound", 404)]
     [InlineData("denied", 403)]
     [InlineData("conflict", 409)]
+    [InlineData("concurrency", 412)]
     [InlineData("auth", 401)]
     [InlineData("domain", 400)]
     public async Task Exception_Mapping_KnownExceptions_MapToStatus_WithCorrelationId(string kind, int expected)
@@ -51,6 +52,7 @@ public sealed class GlobalExceptionHandlerTests
             "notfound" => new NotFoundException(NotFoundException.KnowledgeBase),
             "denied" => new AccessDeniedException(),
             "conflict" => new ConflictException("A user with this email already exists."),
+            "concurrency" => new ConcurrencyConflictException("The record was modified by another request. Reload it and try again."),
             "auth" => new AuthenticationFailedException(),
             _ => new DomainException("Name is required"),
         };

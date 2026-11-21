@@ -109,7 +109,7 @@ public class KnowledgeBaseHandlerTests
         kb.RowVersion = [9, 9, 9, 9, 9, 9, 9, 9];
         _h.SignInAs(owner);
 
-        await Assert.ThrowsAsync<ConflictException>(() => _h.UpdateKnowledgeBase().HandleAsync(
+        await Assert.ThrowsAsync<ConcurrencyConflictException>(() => _h.UpdateKnowledgeBase().HandleAsync(
             new UpdateKnowledgeBaseCommand(kb.Id, "New", null, Convert.ToBase64String(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1 })),
             CancellationToken.None));
         Assert.Equal("Docs", kb.Name);

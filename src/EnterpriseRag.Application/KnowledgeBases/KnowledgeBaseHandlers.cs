@@ -12,7 +12,7 @@ public sealed record ListKnowledgeBasesQuery(int Page, int PageSize);
 
 public sealed record GetKnowledgeBaseQuery(Guid KnowledgeBaseId);
 
-/// <param name="RowVersion">Base64 row version the client last saw; when supplied a mismatch raises <see cref="ConflictException"/>.</param>
+/// <param name="RowVersion">Base64 row version the client last saw; when supplied a mismatch raises <see cref="ConcurrencyConflictException"/> (HTTP 412). The API always supplies it (If-Match is required).</param>
 public sealed record UpdateKnowledgeBaseCommand(Guid KnowledgeBaseId, string Name, string? Description, string? RowVersion);
 
 public sealed record DeleteKnowledgeBaseCommand(Guid KnowledgeBaseId);

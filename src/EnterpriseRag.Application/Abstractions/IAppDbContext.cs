@@ -24,7 +24,7 @@ public interface IAppDbContext
 
     /// <summary>
     /// Declares the row version the caller last saw for optimistic concurrency. On a mismatch the implementation throws
-    /// <see cref="Common.ConflictException"/> (immediately or at <see cref="SaveChangesAsync"/>).
+    /// <see cref="Common.ConcurrencyConflictException"/> (immediately or at <see cref="SaveChangesAsync"/>).
     /// </summary>
     void SetExpectedRowVersion(KnowledgeBase knowledgeBase, byte[] rowVersion);
 

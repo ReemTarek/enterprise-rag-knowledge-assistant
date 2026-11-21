@@ -1,7 +1,14 @@
 namespace EnterpriseRag.Application.Common;
 
-/// <summary>The request conflicts with current state (duplicate, last owner, stale row version, ...). Maps to HTTP 409.</summary>
-public sealed class ConflictException(string message) : Exception(message);
+/// <summary>The request conflicts with current state (duplicate, last owner, ...). Maps to HTTP 409.</summary>
+public class ConflictException(string message) : Exception(message);
+
+/// <summary>
+/// An optimistic-concurrency check on a knowledge base failed: the row version the client supplied (If-Match) is
+/// stale, or someone else changed it in the meantime. Maps to HTTP 412. Subclass of <see cref="ConflictException"/> so
+/// code that handles conflicts generically keeps working.
+/// </summary>
+public sealed class ConcurrencyConflictException(string message) : ConflictException(message);
 
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 

@@ -233,7 +233,7 @@ public sealed class IdentityPersistenceTests(SqlServerFixture fixture)
                 .FirstOrDefaultAsync(db.KnowledgeBases.Where(k => k.Id == kb.Id), CancellationToken.None);
             db.SetExpectedRowVersion(loaded!, staleVersion);
             loaded!.Rename("Mine", null);
-            await Assert.ThrowsAsync<ConflictException>(() => db.SaveChangesAsync(CancellationToken.None));
+            await Assert.ThrowsAsync<ConcurrencyConflictException>(() => db.SaveChangesAsync(CancellationToken.None));
         });
 
         await InScopeAsync(sp, async s =>

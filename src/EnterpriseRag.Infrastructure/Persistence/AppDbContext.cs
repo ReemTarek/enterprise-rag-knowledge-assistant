@@ -40,7 +40,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         Entry(knowledgeBase).Property(k => k.RowVersion).OriginalValue = rowVersion;
 
     /// <summary>
-    /// Persists tracked changes. Optimistic-concurrency failures and unique-key violations surface as
+    /// Persists tracked changes. Optimistic-concurrency failures on a knowledge base surface as
+    /// <see cref="ConcurrencyConflictException"/>; other concurrency failures and unique-key violations as
     /// <see cref="ConflictException"/>; in both cases the change tracker is cleared so the failed changes are never
     /// re-sent by a later save in the same scope (entities must be re-queried afterwards).
     /// </summary>
@@ -50,10 +51,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException ex)
         {
             ChangeTracker.Clear();
-            throw new ConflictException("The record was modified by another request. Reload it and try again.");
+            const string message = "The record was modified by another request. Reload it and try again.";
+            // Knowledge bases carry a client-visible row version (ETag/If-Match): a mismatch is a failed precondition.
+            // Other concurrency failures (e.g. a refresh-token rotation race) stay plain conflicts.
+            throw ex.Entries.Any(e => e.Entity is KnowledgeBase)
+                ? new ConcurrencyConflictException(message)
+                : new ConflictException(message);
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException sql
                                            && sql.Number is DuplicateKeyInUniqueIndex or UniqueConstraintViolation)

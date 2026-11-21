@@ -81,6 +81,7 @@ public sealed partial class GlobalExceptionHandler(
         AuthenticationFailedException => Problem(StatusCodes.Status401Unauthorized, "Unauthorized", AuthenticationFailedException.GenericMessage),
         AccessDeniedException => Problem(StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
         NotFoundException => Problem(StatusCodes.Status404NotFound, "Not found", exception.Message),
+        ConcurrencyConflictException => Problem(StatusCodes.Status412PreconditionFailed, "Precondition Failed", exception.Message),
         ConflictException => Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
         BadHttpRequestException bad => Problem(bad.StatusCode, ReasonPhrases.GetReasonPhrase(bad.StatusCode), "The request could not be processed."),
         _ => Problem(
