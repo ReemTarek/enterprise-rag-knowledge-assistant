@@ -1,25 +1,58 @@
 # API Design
 
-All JSON, camelCase, enums as strings (`"Admin"`, `"Viewer"`). All routes except those marked *anonymous* require
+All JSON, camelCase, enums as strings (`"Admin"`, `"Viewer"`). Enums are accepted **only** as strings: an integer
+(`"globalRole": 1`, `"role": 99`) is a 400. All routes except those marked *anonymous* require
 `Authorization: Bearer <accessToken>`; missing/invalid/stale tokens get 401.
+
+**Must change password**: while the caller's stored `mustChangePassword` is true, every authenticated route answers
+**403** with `type: https://enterprise-rag.local/problems/password-change-required`, except the allowlist
+`POST /api/auth/password` and `GET /api/me`. Anonymous routes (login, refresh, logout, health) are unaffected. The
+flag is read from the database on every request: after a successful password change the same access token works on
+the next request; after an admin reset the user's existing tokens are blocked immediately.
 
 ## Error format
 
-RFC 7807 `application/problem+json`. Every error body contains `correlationId` (also returned in the
-`X-Correlation-Id` response header; a client-supplied value is accepted if it is short and has no newlines).
+RFC 7807 / 9457 `application/problem+json`. Every error body contains `type`, `title`, `status`, `traceId` and
+`correlationId` (also returned in the `X-Correlation-Id` response header; a client-supplied value is accepted if it
+is 1-64 characters of `[A-Za-z0-9-_.]`). Clients branch on `type`, never on `title`/`detail`. Validation errors add an
+`errors` map (field to messages); attempted values are never echoed. 499 has no body.
 
 ```json
-{ "status": 404, "title": "Not found", "detail": "Knowledge base not found.", "correlationId": "..." }
+{
+  "type": "https://enterprise-rag.local/problems/not-found",
+  "title": "Not found",
+  "status": 404,
+  "detail": "Knowledge base not found.",
+  "traceId": "00-...",
+  "correlationId": "..."
+}
 ```
+
+`type` values (prefix `https://enterprise-rag.local/problems/`; other statuses use `http-<status>`):
+
+| type | Status | When |
+|---|---|---|
+| `validation` | 400 | FluentValidation or model binding (malformed JSON, integer enum, missing required field) |
+| `bad-request` | 400 | malformed `If-Match` |
+| `business-rule` | 400 | domain rule violation |
+| `unauthorized` | 401 | missing/invalid/expired/stale token (with `WWW-Authenticate: Bearer`), wrong credentials, failed refresh |
+| `forbidden` | 403 | role too low (non-admin on admin route, member below the required KB role) |
+| `password-change-required` | 403 | caller must change their password first (see above) |
+| `not-found` | 404 | not found or not visible |
+| `conflict` | 409 | duplicate, already a member, last owner, self-deactivation, lost race without `If-Match` |
+| `precondition-failed` | 412 | stale `If-Match` |
+| `precondition-required` | 428 | `If-Match` missing |
+| `too-many-requests` | 429 | rate limit |
+| `internal-error` | 500 | unexpected |
 
 | Status | Meaning |
 |---|---|
 | 400 | Validation failure (`errors` map of field to messages), malformed JSON, malformed `If-Match`, business-rule violation |
 | 401 | Missing/invalid/expired token, wrong credentials (always the generic "Invalid credentials.") |
-| 403 | Authenticated but not allowed (non-admin on admin route, member below the required KB role) |
+| 403 | Authenticated but not allowed (non-admin on admin route, member below the required KB role), or password change required (distinct `type`) |
 | 404 | Not found **or not visible** (non-member, soft-deleted KB: identical body) |
-| 409 | Conflict: duplicate email, already a member, last owner, self-deactivation |
-| 412 | `If-Match` does not match the knowledge base's current rowversion (or it changed concurrently) |
+| 409 | Conflict: duplicate email, already a member, last owner, self-deactivation, a concurrent change on an endpoint without `If-Match` (e.g. membership) |
+| 412 | `If-Match` does not match the knowledge base's current rowversion (also when the body changes nothing), or it changed concurrently |
 | 428 | `If-Match` required but absent |
 | 429 | Rate limit exceeded (`Retry-After` seconds) |
 | 499 | Client closed the request |
@@ -29,17 +62,18 @@ Request-shape errors (400, 428) are evaluated before the resource is resolved.
 
 ## Paging
 
-`?page=1&pageSize=20` (page >= 1, pageSize defaults to 20 when < 1, capped at 100).
+`?page=1&pageSize=20` (page >= 1, pageSize defaults to 20 when < 1, capped at 100). Pages beyond 21474836
+(`int.MaxValue / 100`) are clamped to it and return an empty page (200), never an error.
 Response: `{ "items": [...], "page": 1, "pageSize": 20, "totalCount": 3 }`.
 
 ## Auth (`/api/auth`)
 
 | Method and route | Auth | Request | Response |
 |---|---|---|---|
-| `POST /api/auth/login` | anonymous, 10/min/IP | `{ email, password }` | 200 `{ accessToken, expiresAtUtc, mustChangePassword }` + `Set-Cookie: refresh_token` ; 401 generic; 429 |
-| `POST /api/auth/refresh` | anonymous, 30/min/IP | no body; cookie `refresh_token` | 200 as login with a rotated cookie; 401 (missing/unknown/expired/reused); 429 |
+| `POST /api/auth/login` | anonymous, 10/min/IP | `{ email, password }` (password max 128) | 200 `{ accessToken, expiresAtUtc, mustChangePassword }` + `Set-Cookie: refresh_token`, `Cache-Control: no-store`, `Pragma: no-cache`; 401 generic (also for a password over 128 chars); 429 |
+| `POST /api/auth/refresh` | anonymous, 30/min/IP | no body; cookie `refresh_token` | 200 as login with a rotated cookie (`no-store`); 401 (missing/unknown/expired/reused) which also deletes a presented cookie; 429 |
 | `POST /api/auth/logout` | anonymous, 30/min/IP | no body; cookie | 204 always; cookie cleared |
-| `POST /api/auth/password` | Bearer | `{ currentPassword, newPassword }` (+ refresh cookie to keep the current session) | 204; 400 policy / wrong current password |
+| `POST /api/auth/password` | Bearer (allowed while a change is required), 10/min/IP shared with login | `{ currentPassword, newPassword }` (both max 128; + refresh cookie to keep the current session) | 204; 400 policy / wrong current password (counts towards lockout; refused while locked out); 429 |
 
 Cookie: `refresh_token`, `HttpOnly; Secure; SameSite=Strict; Path=/api/auth`, expires with the token (7 days).
 
@@ -47,7 +81,7 @@ Cookie: `refresh_token`, `HttpOnly; Secure; SameSite=Strict; Path=/api/auth`, ex
 
 | Method and route | Auth | Response |
 |---|---|---|
-| `GET /api/me` | Bearer | 200 `{ id, email, displayName, globalRole, mustChangePassword }` |
+| `GET /api/me` | Bearer (allowed while a change is required) | 200 `{ id, email, displayName, globalRole, mustChangePassword }` |
 
 ## User directory
 

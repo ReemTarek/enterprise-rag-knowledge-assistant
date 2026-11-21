@@ -1,8 +1,9 @@
 # Project Progress
 
 ## Current phase
-Phase 2a (Identity and Knowledge Bases, backend) is complete and verified on branch `phase-2-identity-kb`, pending
-whole-branch review. NOT merged to main. Phase 1 (branch `phase-1-foundation`) was completed earlier.
+Phase 2a (Identity and Knowledge Bases, backend) is complete on branch `phase-2-identity-kb`: the whole-branch final
+review was done and its must-fix findings are fixed (one fix wave, below). **Pending merge approval.** NOT merged to
+main. Phase 1 (branch `phase-1-foundation`) was completed earlier.
 
 ## Completed milestones
 Phase 1 (from main @ f3df10c): toolchain and docs scaffold, solution skeleton, architecture tests, Domain base types,
@@ -22,13 +23,39 @@ Phase 2a (branch `phase-2-identity-kb`, `git log --oneline main..HEAD`):
 - 5d1dd45 feat(api): admin user management and user directory
 - f360295 feat(api): knowledge bases, membership and authorization matrix
 - e80c42f test: enforce controllers exist and handlers sealed
-- Task 7: this docs and verification commit (`docs: phase 2a complete (pending review)`)
+- f58691b docs: phase 2a complete (pending review)
+- Final-review fix wave:
+  - f812610 fix(api): enforce must-change-password server-side (C1)
+  - c1fda03 fix: membership race 409, stale If-Match, paging overflow, password oracle, seed gate (I1-I4)
+  - e310771 fix(api): error contract, enum strictness, token no-store, password length (M1-M4)
+  - docs: phase 2a final-review fixes (this file, SECURITY, API_DESIGN, INFRASTRUCTURE, ADR 0004)
+
+Fixed in the final-review wave (moved from known issues):
+- C1 `mustChangePassword` enforced server-side: SQL-derived server claim, requirement on default/fallback/AdminOnly
+  policies, allowlist `POST /api/auth/password` + `GET /api/me`, 403 `.../problems/password-change-required`; same
+  token works after the change; admin reset blocks existing tokens immediately.
+- I1 lost race without If-Match is 409 (only client-supplied row versions give 412); stale If-Match with an unchanged
+  body is 412 (compared before saving).
+- I2 huge `?page=` returns 200 with an empty page (page clamped, skip computed in long).
+- I3 `POST /api/auth/password` rate limited with login (10/min/IP); wrong current passwords count towards lockout.
+- I4 seed: no pending-migration gate; tolerates only SQL 207/208 and connectivity failures; otherwise an empty Users
+  table without Seed config fails startup.
+- `IAppDbContext.SaveChangesAsync` documents that a conflict detaches all tracked entities.
+- M1 error contract (`type`, `title`, `status`, `traceId`, `correlationId` on every ProblemDetails); M2 integer enums
+  rejected; M3 `no-store` on token responses and dead refresh cookie deleted on a failed refresh; M4 128-char password
+  maximum (change, login, seed). Also closes earlier deferrals: dead cookie after failed refresh and ChangePassword not
+  rate limited (T4), seed pending-migration gate and port doc (T3), membership 412 race, paging overflow and the
+  stale-unchanged test (T6), integer `globalRole` HTTP test (T5).
 
 ## Status
-Verification on 2026-11-21 (Release):
+Verification after the final-review fix wave, 2026-11-21 (Release):
 - `dotnet build EnterpriseRag.sln -c Release`: 0 warnings, 0 errors.
-- `dotnet test EnterpriseRag.sln -c Release`: all pass - Domain 16, Application 90, Architecture 38, Infrastructure 50,
-  API.IntegrationTests 168 (362 tests, 0 failures). The API suite takes about 2.75 minutes (Testcontainers).
+- `dotnet test EnterpriseRag.sln -c Release`: all pass - Domain 16, Application 101, Architecture 38, Infrastructure 56,
+  API.IntegrationTests 190 (401 tests, 0 failures). The API suite takes about 3.3 minutes (Testcontainers).
+- The end-to-end run below predates the fix wave (it was done on f58691b) and was not repeated. With C1 the seeded
+  admin must now change its password before any admin call.
+
+Earlier verification (f58691b): 362 tests (Domain 16, Application 90, Architecture 38, Infrastructure 50, API 168).
 - End-to-end against the Compose SQL Server (Release API on 127.0.0.1:5187, migrations applied with the documented
   `dotnet ef` command): seeded admin login 200; admin created two users (201, temporary password returned once);
   first login `mustChangePassword: true`, password change 204, re-login `mustChangePassword: false`; user B created a
@@ -49,6 +76,10 @@ Verification on 2026-11-21 (Release):
 - The role claim is re-checked against SQL (active, not deleted, same role) on every authenticated request.
 - Stale or malformed knowledge-base rowversion: 412 (`ConcurrencyConflictException`); `If-Match` is required (428 when absent).
 - Removing/demoting the last owner: 409. `ConflictException` = 409 generically; `ConcurrencyConflictException` is a subclass mapped to 412.
+  Only a failed client precondition (If-Match) is 412; a lost race without If-Match is 409.
+- `mustChangePassword` is enforced server-side, deny-by-default (ADR 0004): requirement on default/fallback/AdminOnly,
+  opt-out `[AllowWhilePasswordChangeRequired]` on `POST /api/auth/password` and `GET /api/me` only.
+- Every ProblemDetails carries a stable `type` (`https://enterprise-rag.local/problems/<kind>`); enums bind from strings only.
 - Phase 1 rulings still apply: Worker has no database until Phase 6; global soft-delete filter by convention; Serilog.AspNetCore
   pinned to 10.0.0 and Swashbuckle to 11.0.0 (Smart App Control history); `Ai:EmbeddingDimensions` 768 changes with the Phase 4 model.
 
@@ -62,8 +93,16 @@ Verification on 2026-11-21 (Release):
 - Migrations: src/EnterpriseRag.Infrastructure/Persistence/Migrations
 
 ## Pending work
-- Phase 2a final branch review, then merge decision.
-- Phase 2b plan.
+- Merge approval for Phase 2a.
+- Phase 2b plan (must include the items below).
+
+Plan items for Phase 2b/3 (from the final review):
+- I6: a knowledge base whose owners are all deactivated is unmanageable (no admin back door). Decide: an admin
+  "assign owner" action that grants no content access, or user reactivation (admins can only deactivate today).
+- M9: members cannot leave a knowledge base (`DELETE .../members/{self}` requires Owner). Add a self-leave in 2b/3.
+- 2b frontend: no CORS is configured; the Angular dev server must proxy `/api` (same origin), or CORS with
+  credentials must be added deliberately. The `Secure` refresh cookie needs HTTPS or localhost.
+- 2b frontend: handle 403 `.../problems/password-change-required` by routing to the change-password screen.
 
 ## Known issues
 Environment:
@@ -80,25 +119,39 @@ Deferred Phase 1 findings (unchanged):
 - T8: readiness check has no explicit timeout (~15 s when the DB is down); "ready" tag literal duplicated; each HealthTests instance starts its own container.
 - T9: ci.yml has no timeout-minutes/concurrency; double runs on push + PR; bare `dotnet restore/test`.
 
-Deferred Phase 2a findings (from per-task reviews):
+Known issues from the Phase 2a final review (deferred, documented in SECURITY.md):
+- I5: lost update on the failed-login counter under concurrency - Phase 11. Do NOT add a rowversion to `User` (it
+  creates an existence/timing oracle); the fix is an atomic `UPDATE ... SET FailedLoginCount = FailedLoginCount + 1`.
+- M5: audit is written after commit; a failed audit write returns 500 after the change committed (for CreateUser the
+  one-time temporary password is lost; recovery = admin reset).
+- M6: `RevokeFamily` filters on `FamilyId` only (no `UserId` guard); expired refresh tokens are never purged - Phase 6
+  (Worker cleanup job).
+- M7: the seed password is only length-checked (no complexity policy) and the seed email is not format-validated.
+- M8: after a user-initiated password change, other sessions' access tokens stay valid for up to 15 minutes.
+- M11: Serilog request logging records query strings, including user-directory search terms.
+- JWT signing-key rotation is not supported (single key).
+- DEFER (ledger, brief): no `WWW-Authenticate` on credential-failure 401s (by design); DB check also runs on anonymous
+  endpoints with a stale Bearer header; DB outage in `OnTokenValidated` likely 500 not 503; null-IP rate-limit bucket;
+  proxy-aware client IP (Phase 11); every unique violation maps to 409; `SuccessRehashNeeded` not surfaced; audit
+  in its own context; audit append-only enforced in EF only (DB-level in Phase 10); member list shows emails to
+  Viewers (product decision); 499 has no body; API test suite duration.
+
+Deferred Phase 2a findings (from per-task reviews; items fixed in the final wave removed):
 - T1 (Domain): lockout edge cases (`maxAttempts <= 0` unguarded); missing tests for UTC-kind, non-member and PermissionVersion cases.
 - T2 (Application): reuse audit is noisy for non-rotated revoked tokens; the wrong-password path saves once more than needed (timing);
-  weak email validation; admin rights were tied to the token role (now fixed by the SQL role check).
-- T3 (Infrastructure): seed gates on ANY pending migration (should tolerate only SqlException 207/208 and otherwise throw, which
-  touches the fail-fast constraint); every unique violation maps to 409; `ChangeTracker.Clear` detaches all tracked entities (port doc);
-  seed email not format-validated; `SuccessRehashNeeded` not surfaced; AuditLogger uses a separate context/connection.
-- T4 (API auth): the DB check also runs on anonymous endpoints when a stale Bearer header is sent; `WWW-Authenticate` missing on
-  401s from the exception path; null-IP rate-limit bucket; dead cookie left after a failed refresh; ChangePassword not rate limited;
-  a DB outage inside `OnTokenValidated` likely yields 500.
-- T5 (admin API): no HTTP test for `globalRole: 99` / unknown string; the log-sink test does not assert request logging of the POSTs.
-- T6 (knowledge bases): a membership race returns 412 without If-Match (should be 409); a huge `?page=` overflows to a negative
-  OFFSET and returns 500 (`Common.cs` paging, shared with the users list); stale If-Match + unchanged body is untested; the member
-  list exposes all members' emails to Viewers (product decision to confirm); the API test suite takes about 2.75 minutes.
-- Also noted in Task 7: `mustChangePassword` is reported but not enforced server-side.
+  weak email validation.
+- T3 (Infrastructure): every unique violation maps to 409; seed email not format-validated; `SuccessRehashNeeded` not surfaced;
+  AuditLogger uses a separate context/connection.
+- T4 (API auth): the DB check also runs on anonymous endpoints when a stale Bearer header is sent; `WWW-Authenticate` not sent on
+  credential-failure 401s (documented as intended); null-IP rate-limit bucket; a DB outage inside `OnTokenValidated` likely yields 500.
+- T5 (admin API): no HTTP test for an unknown role string; the log-sink test does not assert request logging of the POSTs.
+- T6 (knowledge bases): the member list exposes all members' emails to Viewers (product decision to confirm); the API test suite
+  takes about 3.3 minutes.
 
 ## Failing tests/outstanding validation
 - None failing. Not yet validated: CI on GitHub; embedding model choice (Phase 4).
 
 ## Next task
-1. Phase 2a final branch review, then merge decision.
-2. Phase 2b plan: Angular shell, login UI, RTL/i18n (ar/en/de).
+1. Phase 2a merge decision (pending approval).
+2. Phase 2b plan: Angular shell, login UI (incl. forced password change), RTL/i18n (ar/en/de), same-origin dev proxy;
+   decide I6 and M9.
