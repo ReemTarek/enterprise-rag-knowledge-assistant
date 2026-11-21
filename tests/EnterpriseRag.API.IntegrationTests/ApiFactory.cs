@@ -54,6 +54,8 @@ public sealed class TestEndpointsController : ControllerBase
 }
 
 /// <summary>Stand-in for Task 5's admin endpoints: guarded by the real <c>AdminOnly</c> policy.</summary>
+/// <remarks>[ApiController] like every real controller: MVC writes ProblemDetails bodies only for API controllers.</remarks>
+[ApiController]
 [Route("test")]
 public sealed class TestAdminEndpointsController : ControllerBase
 {

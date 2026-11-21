@@ -1,3 +1,4 @@
+using EnterpriseRag.API.Http;
 using EnterpriseRag.Application.Common;
 using EnterpriseRag.Application.Security;
 using EnterpriseRag.Domain.Common;
@@ -74,10 +75,11 @@ public sealed partial class GlobalExceptionHandler(
                 .GroupBy(e => e.PropertyName)
                 .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).Distinct().ToArray()))
         {
+            Type = ProblemTypes.Validation,
             Status = StatusCodes.Status400BadRequest,
             Title = "One or more validation errors occurred.",
         },
-        DomainException => Problem(StatusCodes.Status400BadRequest, "Business rule violation", exception.Message),
+        DomainException => Problem(StatusCodes.Status400BadRequest, "Business rule violation", exception.Message, ProblemTypes.BusinessRule),
         AuthenticationFailedException => Problem(StatusCodes.Status401Unauthorized, "Unauthorized", AuthenticationFailedException.GenericMessage),
         AccessDeniedException => Problem(StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
         NotFoundException => Problem(StatusCodes.Status404NotFound, "Not found", exception.Message),
@@ -90,8 +92,8 @@ public sealed partial class GlobalExceptionHandler(
             environment.IsDevelopment() ? exception.Message : "An unexpected error occurred. Include the correlation id when contacting support."),
     };
 
-    private static ProblemDetails Problem(int status, string title, string detail) =>
-        new() { Status = status, Title = title, Detail = detail };
+    private static ProblemDetails Problem(int status, string title, string detail, string? type = null) =>
+        new() { Type = type ?? ProblemTypes.ForStatus(status), Status = status, Title = title, Detail = detail };
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Request aborted by the client. CorrelationId={CorrelationId}")]
     private static partial void LogRequestAborted(ILogger logger, string? correlationId);

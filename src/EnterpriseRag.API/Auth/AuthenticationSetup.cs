@@ -1,6 +1,8 @@
 using System.Text;
 using System.Threading.RateLimiting;
+using EnterpriseRag.API.Http;
 using EnterpriseRag.Shared.Options;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -23,11 +25,17 @@ public static class AuthenticationSetup
     /// <summary>
     /// JWT bearer validation (issuer, audience, HS256 signature, lifetime with 30 s skew), an active-user check on every
     /// request, a fallback policy that requires authentication everywhere (opt out with <c>AllowAnonymous</c>), and the
-    /// <see cref="AdminOnlyPolicy"/>.
+    /// <see cref="AdminOnlyPolicy"/>. The default, fallback and AdminOnly policies all carry
+    /// <see cref="PasswordChangeRequiredRequirement"/>: a user whose stored <c>MustChangePassword</c> is true gets a 403
+    /// <see cref="ProblemTypes.PasswordChangeRequired"/> everywhere except endpoints marked
+    /// <see cref="AllowWhilePasswordChangeRequiredAttribute"/>. Any policy added later must include it too (the
+    /// endpoint-walk test fails otherwise).
     /// </summary>
     public static IServiceCollection AddApiAuthentication(this IServiceCollection services)
     {
         services.AddScoped<ActiveUserCheck>();
+        services.AddSingleton<IAuthorizationHandler, PasswordChangeRequiredAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemAuthorizationResultHandler>();
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
         // Configured from the validated JwtOptions at resolve time (not from IConfiguration at startup), so the key is
@@ -61,30 +69,43 @@ public static class AuthenticationSetup
                         var roles = context.Principal?.FindAll(RoleClaim).Select(c => c.Value).ToList() ?? [];
                         var check = context.HttpContext.RequestServices.GetRequiredService<ActiveUserCheck>();
                         // Fail closed: exactly one role claim, and it must match the stored role.
-                        if (!Guid.TryParse(subject, out var userId)
-                            || roles.Count != 1
-                            || !await check.IsValidAsync(userId, roles[0], context.HttpContext.RequestAborted))
+                        var status = Guid.TryParse(subject, out var userId) && roles.Count == 1
+                            ? await check.CheckAsync(userId, roles[0], context.HttpContext.RequestAborted)
+                            : null;
+                        if (status is null)
                         {
                             context.Fail("The user is unknown, inactive, deleted or no longer holds the token's role.");
+                            return;
                         }
+
+                        // Server-added from SQL; a same-named claim inside the token is stripped first.
+                        PasswordChangeClaims.Apply(context.Principal!, status.MustChangePassword);
                     },
                     OnChallenge = async context =>
                     {
                         context.HandleResponse();
                         context.Response.Headers.WWWAuthenticate = JwtBearerDefaults.AuthenticationScheme;
                         await ProblemResponses.WriteAsync(context.HttpContext, StatusCodes.Status401Unauthorized,
-                            "Unauthorized", "Authentication is required.");
+                            "Unauthorized", "Authentication is required.", ProblemTypes.Unauthorized);
                     },
                     OnForbidden = context => ProblemResponses.WriteAsync(context.HttpContext, StatusCodes.Status403Forbidden,
-                        "Forbidden", "Access denied."),
+                        "Forbidden", "Access denied.", ProblemTypes.Forbidden),
                 };
             });
 
+        // The fallback policy only applies to endpoints WITHOUT authorization metadata, so the requirement must be on
+        // the default policy ([Authorize]) and on every named policy as well.
+        var authenticated = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .AddRequirements(PasswordChangeRequiredRequirement.Instance)
+            .Build();
         services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+            .SetDefaultPolicy(authenticated)
+            .SetFallbackPolicy(authenticated)
+            .AddPolicy(AdminOnlyPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .Build())
-            .AddPolicy(AdminOnlyPolicy, policy => policy.RequireAuthenticatedUser().RequireClaim(RoleClaim, "Admin"));
+                .RequireClaim(RoleClaim, "Admin")
+                .AddRequirements(PasswordChangeRequiredRequirement.Instance));
 
         return services;
     }
@@ -110,7 +131,7 @@ public static class AuthenticationSetup
                 }
 
                 await ProblemResponses.WriteAsync(context.HttpContext, StatusCodes.Status429TooManyRequests,
-                    "Too many requests", "Too many attempts. Try again later.");
+                    "Too many requests", "Too many attempts. Try again later.", ProblemTypes.TooManyRequests);
             };
         });
         return services;

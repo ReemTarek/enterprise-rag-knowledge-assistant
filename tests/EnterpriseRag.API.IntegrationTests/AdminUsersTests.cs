@@ -28,8 +28,7 @@ public sealed class AdminUsersTests(ApiDatabaseFixture db) : IAsyncLifetime
         await _factory.DisposeAsync();
     }
 
-    private async Task<string> AdminTokenAsync() =>
-        (await AuthHttp.LoginAsync(_client, ApiDatabaseFixture.AdminEmail, ApiDatabaseFixture.AdminPassword)).AccessToken;
+    private Task<string> AdminTokenAsync() => ApiDatabaseFixture.AdminTokenAsync(_client);
 
     private static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
@@ -89,9 +88,16 @@ public sealed class AdminUsersTests(ApiDatabaseFixture db) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, login.Response.StatusCode);
         Assert.True(login.Body.GetProperty("mustChangePassword").GetBoolean());
 
+        // Forced: until the change, protected endpoints answer 403 password-change-required.
+        var blocked = await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/knowledge-bases", login.AccessToken);
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+        Assert.Equal(EnterpriseRag.API.Http.ProblemTypes.PasswordChangeRequired, (await JsonAsync(blocked)).GetProperty("type").GetString());
+
         var change = await AuthHttp.SendAsync(_client, HttpMethod.Post, "/api/auth/password", login.AccessToken,
             login.RefreshToken, new { currentPassword = temp, newPassword = "Brand-New-Password-9" });
         Assert.Equal(HttpStatusCode.NoContent, change.StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await AuthHttp.SendAsync(_client, HttpMethod.Get, "/api/knowledge-bases", login.AccessToken)).StatusCode);
 
         var again = await AuthHttp.LoginAsync(_client, email, "Brand-New-Password-9");
         Assert.Equal(HttpStatusCode.OK, again.Response.StatusCode);
@@ -105,7 +111,7 @@ public sealed class AdminUsersTests(ApiDatabaseFixture db) : IAsyncLifetime
         using var factory = db.CreateFactory().WithWebHostBuilder(b =>
             b.ConfigureServices(s => s.AddSingleton<ILogEventSink>(sink)));
         using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
-        var admin = (await AuthHttp.LoginAsync(client, ApiDatabaseFixture.AdminEmail, ApiDatabaseFixture.AdminPassword)).AccessToken;
+        var admin = await ApiDatabaseFixture.AdminTokenAsync(client);
 
         var created = await CreateAsync(client, admin, ApiDatabaseFixture.UniqueEmail("logs"));
         var createdBody = await JsonAsync(created);

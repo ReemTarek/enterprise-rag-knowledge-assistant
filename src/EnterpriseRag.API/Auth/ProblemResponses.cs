@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EnterpriseRag.API.Auth;
 
-/// <summary>Writes ProblemDetails bodies from outside MVC (authentication challenges, rate-limit rejections).</summary>
+/// <summary>Writes ProblemDetails bodies from outside MVC (authentication challenges, authorization denials, rate-limit rejections).</summary>
 public static class ProblemResponses
 {
-    public static async Task WriteAsync(HttpContext context, int status, string title, string detail)
+    public static async Task WriteAsync(HttpContext context, int status, string title, string detail, string type)
     {
         if (context.Response.HasStarted)
         {
@@ -14,7 +14,7 @@ public static class ProblemResponses
         }
 
         context.Response.StatusCode = status;
-        var problem = new ProblemDetails { Status = status, Title = title, Detail = detail };
+        var problem = new ProblemDetails { Type = type, Status = status, Title = title, Detail = detail };
         problem.Extensions["correlationId"] = CorrelationIdMiddleware.Get(context);
         await context.RequestServices.GetRequiredService<IProblemDetailsService>()
             .TryWriteAsync(new ProblemDetailsContext { HttpContext = context, ProblemDetails = problem });

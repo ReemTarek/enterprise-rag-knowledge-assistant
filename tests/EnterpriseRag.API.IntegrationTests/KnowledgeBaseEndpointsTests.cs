@@ -329,7 +329,7 @@ public sealed class KnowledgeBaseEndpointsTests(ApiDatabaseFixture db) : IAsyncL
         var rowVersion = await RowVersionAsync(_client, owner.Token, kb);
         var before = await SnapshotAsync(_factory, kb);
 
-        var seededAdmin = (await AuthHttp.LoginAsync(_client, ApiDatabaseFixture.AdminEmail, ApiDatabaseFixture.AdminPassword)).AccessToken;
+        var seededAdmin = await ApiDatabaseFixture.AdminTokenAsync(_client);
         foreach (var token in new[] { admin.Token, seededAdmin })
         {
             foreach (var (method, url, body, ifMatch) in KbScopedRoutes(kb, member.Id, candidate.Id, rowVersion))

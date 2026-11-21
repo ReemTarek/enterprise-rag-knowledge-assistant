@@ -1,3 +1,4 @@
+using EnterpriseRag.API.Auth;
 using EnterpriseRag.API.Contracts;
 using EnterpriseRag.Application.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,8 @@ namespace EnterpriseRag.API.Controllers;
 [Route("api/me")]
 public sealed class MeController : ControllerBase
 {
+    /// <summary>Allowed while a password change is pending, so the client can learn why other calls get 403.</summary>
+    [AllowWhilePasswordChangeRequired]
     [HttpGet]
     public async Task<ActionResult<MeResponse>> Get([FromServices] GetCurrentUserHandler handler, CancellationToken ct) =>
         Ok(MeResponse.From(await handler.HandleAsync(ct)));

@@ -66,7 +66,10 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
     [Fact]
     public async Task Login_SeededAdmin_MustChangePassword()
     {
-        var login = await AuthHttp.LoginAsync(_client, ApiDatabaseFixture.AdminEmail, ApiDatabaseFixture.AdminPassword);
+        // A fresh database: the shared one's seeded admin has already changed its password (fixture).
+        await using var factory = new ApiFactory(connectionString: await db.CreateDatabaseAsync("seeded_admin"));
+        using var client = AuthHttp.CreateClient(factory);
+        var login = await AuthHttp.LoginAsync(client, ApiDatabaseFixture.AdminEmail, ApiDatabaseFixture.AdminPassword);
 
         Assert.Equal(HttpStatusCode.OK, login.Response.StatusCode);
         Assert.True(login.Body.GetProperty("mustChangePassword").GetBoolean());

@@ -240,9 +240,15 @@ public sealed class AuthorizationDefaultsTests(ApiDatabaseFixture db) : IAsyncLi
 
     internal static string Mint(
         Guid userId, string key, string issuer, string audience, DateTime expires, DateTime issuedAt,
-        string algorithm = SecurityAlgorithms.HmacSha256, string? role = "User")
+        string algorithm = SecurityAlgorithms.HmacSha256, string? role = "User",
+        IReadOnlyDictionary<string, object>? extraClaims = null)
     {
         var claims = new Dictionary<string, object> { ["sub"] = userId.ToString() };
+        foreach (var (type, value) in extraClaims ?? new Dictionary<string, object>())
+        {
+            claims[type] = value;
+        }
+
         if (role is not null)
         {
             claims["role"] = role;

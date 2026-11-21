@@ -52,6 +52,7 @@ public sealed class AuthController : ControllerBase
     /// Changes the caller's password (access token required) and ends every other session. It lives under
     /// <c>/api/auth</c> so the browser sends the refresh cookie (Path=/api/auth), which identifies the session to keep.
     /// </summary>
+    [AllowWhilePasswordChangeRequired]
     [HttpPost("password")]
     public async Task<IActionResult> ChangePassword(
         ChangePasswordRequest request, [FromServices] ChangePasswordHandler handler, CancellationToken ct)

@@ -1,5 +1,6 @@
 using EnterpriseRag.API.Auth;
 using EnterpriseRag.API.Health;
+using EnterpriseRag.API.Http;
 using EnterpriseRag.API.Middleware;
 using EnterpriseRag.API.Services;
 using EnterpriseRag.Application;
@@ -49,7 +50,9 @@ builder.Services.AddApiHealthChecks();
 builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
     {
-        // Covers ProblemDetails produced by MVC (e.g. automatic model-validation 400s) as well.
+        // Covers ProblemDetails produced by MVC (e.g. automatic model-validation 400s) as well: every body gets a type
+        // from the ProblemTypes scheme (framework RFC 9110 defaults are replaced), a traceId and the correlationId.
+        context.ProblemDetails.Type = ProblemTypes.Resolve(context.ProblemDetails);
         var correlationId = CorrelationIdMiddleware.Get(context.HttpContext);
         if (correlationId is not null)
         {
