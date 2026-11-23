@@ -82,13 +82,13 @@
     "new": "Neues Passwort",
     "confirm": "Neues Passwort bestätigen",
     "submit": "Passwort ändern",
-    "hint": "Mindestens 12 Zeichen mit Großbuchstabe, Kleinbuchstabe und Ziffer.",
+    "hint": "Mindestens 12 Zeichen mit lateinischem Großbuchstaben, lateinischem Kleinbuchstaben und Ziffer.",
     "validation": {
       "required": "Dieses Feld ist erforderlich.",
       "minLength": "Das Passwort muss mindestens 12 Zeichen lang sein.",
       "maxLength": "Das Passwort darf höchstens 128 Zeichen lang sein.",
-      "upper": "Verwenden Sie mindestens einen Großbuchstaben.",
-      "lower": "Verwenden Sie mindestens einen Kleinbuchstaben.",
+      "upper": "Verwenden Sie mindestens einen lateinischen Großbuchstaben (A-Z).",
+      "lower": "Verwenden Sie mindestens einen lateinischen Kleinbuchstaben (a-z).",
       "digit": "Verwenden Sie mindestens eine Ziffer.",
       "mismatch": "Die Passwörter stimmen nicht überein.",
       "sameAsCurrent": "Das neue Passwort muss sich vom aktuellen unterscheiden."

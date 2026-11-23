@@ -82,6 +82,8 @@ describe('ChangePasswordComponent', () => {
     ['no upper', 'lowercase-only-123', 'at least one upper-case'],
     ['no lower', 'UPPERCASE-ONLY-123', 'at least one lower-case'],
     ['no digit', 'No-Digits-Here-Abc', 'at least one digit'],
+    ['non-ASCII upper only', 'äpfel-kuchen-12xÄ', 'at least one upper-case'],
+    ['non-ASCII lower only', 'ABCDEFGHIJKL-12ß', 'at least one lower-case'],
     ['too long', `Aa1${'x'.repeat(130)}`, 'at most 128'],
   ])('ChangePasswordComponent_PolicyViolation_%s', async (_n, pw, msg) => {
     const f = await setup(false);

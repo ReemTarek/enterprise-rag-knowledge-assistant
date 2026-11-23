@@ -85,3 +85,49 @@ describe('Routes', () => {
     expect(document.documentElement.dir).toBe('ltr');
   });
 });
+
+describe('Must-change on the real router', () => {
+  const blocked = ['/admin', '/settings', '/forbidden', '/no/such/page', '/knowledge-bases'];
+
+  function configureMustChange(admin: boolean) {
+    configure({ auth: true, admin });
+    TestBed.inject(AuthStore).setMustChangePassword(true);
+  }
+
+  it.each([false, true])(
+    'MustChange_RealRouter_BlocksAdminSettingsForbiddenAndNotFound (admin=%s)',
+    async (admin) => {
+      configureMustChange(admin);
+      const h = await RouterTestingHarness.create();
+      for (const url of blocked) {
+        await h.navigateByUrl(url);
+        expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
+      }
+    },
+  );
+
+  it('MustChange_RealRouter_SecondNavigationStillBlocked', async () => {
+    configureMustChange(true);
+    const h = await RouterTestingHarness.create('/admin');
+    expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
+    await TestBed.inject(Router).navigateByUrl('/settings');
+    expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
+    await h.navigateByUrl('/admin');
+    expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
+  });
+
+  it('MustChange_Cleared_RoutesWorkAgain', async () => {
+    configureMustChange(false);
+    const h = await RouterTestingHarness.create('/settings');
+    expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
+    TestBed.inject(AuthStore).setMustChangePassword(false);
+    await h.navigateByUrl('/settings');
+    expect(TestBed.inject(Router).url).toBe('/settings');
+    await h.navigateByUrl('/forbidden');
+    expect(TestBed.inject(Router).url).toBe('/forbidden');
+    await h.navigateByUrl('/admin');
+    expect(TestBed.inject(Router).url).toBe('/forbidden');
+    await h.navigateByUrl('/no/such/page');
+    expect(h.routeNativeElement!.textContent).toContain('Page not found');
+  });
+});

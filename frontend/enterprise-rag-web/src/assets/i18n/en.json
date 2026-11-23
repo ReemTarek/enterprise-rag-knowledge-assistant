@@ -82,13 +82,13 @@
     "new": "New password",
     "confirm": "Confirm new password",
     "submit": "Change password",
-    "hint": "At least 12 characters, with an upper-case letter, a lower-case letter and a digit.",
+    "hint": "At least 12 characters, with an upper-case Latin letter, a lower-case Latin letter and a digit.",
     "validation": {
       "required": "This field is required.",
       "minLength": "The password must have at least 12 characters.",
       "maxLength": "The password must have at most 128 characters.",
-      "upper": "Include at least one upper-case letter.",
-      "lower": "Include at least one lower-case letter.",
+      "upper": "Include at least one upper-case Latin letter (A-Z).",
+      "lower": "Include at least one lower-case Latin letter (a-z).",
       "digit": "Include at least one digit.",
       "mismatch": "Passwords do not match.",
       "sameAsCurrent": "The new password must be different from the current one."

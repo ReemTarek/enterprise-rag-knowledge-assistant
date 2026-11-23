@@ -38,9 +38,10 @@ export const passwordPolicy: ValidatorFn = (control: AbstractControl): Validatio
   const errors: ValidationErrors = {};
   if (v.length < MIN_PASSWORD_LENGTH) errors['minLength'] = true;
   if (v.length > MAX_PASSWORD_LENGTH) errors['maxLength'] = true;
-  if (!/\p{Lu}/u.test(v)) errors['upper'] = true;
-  if (!/\p{Ll}/u.test(v)) errors['lower'] = true;
-  if (!/\d/.test(v)) errors['digit'] = true;
+  // ASCII classes on purpose: the server checks [A-Z], [a-z], [0-9]; Ä/ß/Arabic-Indic digits must not pass here.
+  if (!/[A-Z]/.test(v)) errors['upper'] = true;
+  if (!/[a-z]/.test(v)) errors['lower'] = true;
+  if (!/[0-9]/.test(v)) errors['digit'] = true;
   return Object.keys(errors).length > 0 ? errors : null;
 };
 
