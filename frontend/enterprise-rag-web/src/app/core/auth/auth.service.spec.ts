@@ -67,15 +67,13 @@ describe('AuthService', () => {
   it('Login_Failure_MapsGeneric401', () => {
     let error: unknown;
     t.auth.login('ada@example.com', 'wrong').subscribe({ error: (e) => (error = e) });
-    t.ctrl
-      .expectOne('/api/auth/login')
-      .flush(
-        {
-          ...problem(401, PROBLEM_TYPES.unauthorized, 'Unauthorized'),
-          detail: 'Invalid credentials.',
-        },
-        { status: 401, statusText: 'Unauthorized' },
-      );
+    t.ctrl.expectOne('/api/auth/login').flush(
+      {
+        ...problem(401, PROBLEM_TYPES.unauthorized, 'Unauthorized'),
+        detail: 'Invalid credentials.',
+      },
+      { status: 401, statusText: 'Unauthorized' },
+    );
 
     // verify() in afterEach asserts that no refresh was attempted.
     expect(error).toBeInstanceOf(ApiError);
@@ -248,12 +246,10 @@ describe('AuthService', () => {
       completeLogin(TOKEN);
       // 401 -> refresh -> retry
       t.http.get('/api/knowledge-bases').subscribe();
-      t.ctrl
-        .expectOne('/api/knowledge-bases')
-        .flush(problem(401, PROBLEM_TYPES.unauthorized), {
-          status: 401,
-          statusText: 'Unauthorized',
-        });
+      t.ctrl.expectOne('/api/knowledge-bases').flush(problem(401, PROBLEM_TYPES.unauthorized), {
+        status: 401,
+        statusText: 'Unauthorized',
+      });
       t.ctrl.expectOne('/api/auth/refresh').flush(tokenResponse(ROTATED));
       t.ctrl.expectOne('/api/knowledge-bases').flush({ items: [] });
       // password change

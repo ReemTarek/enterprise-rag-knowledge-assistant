@@ -215,13 +215,11 @@ describe('authInterceptor', () => {
     signIn();
     let error: ApiError | undefined;
     t.http.delete('/api/knowledge-bases/1').subscribe({ error: (e) => (error = e) });
-    t.ctrl
-      .expectOne('/api/knowledge-bases/1')
-      .flush(null, {
-        status: 499,
-        statusText: 'Client Closed Request',
-        headers: { 'X-Correlation-Id': 'cid-499' },
-      });
+    t.ctrl.expectOne('/api/knowledge-bases/1').flush(null, {
+      status: 499,
+      statusText: 'Client Closed Request',
+      headers: { 'X-Correlation-Id': 'cid-499' },
+    });
     expect(error?.status).toBe(499);
     expect(error?.type).toBe('https://enterprise-rag.local/problems/http-499');
     expect(error?.correlationId).toBe('cid-499');

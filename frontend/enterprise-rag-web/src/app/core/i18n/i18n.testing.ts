@@ -18,6 +18,11 @@ export class InlineTranslationLoader implements TranslocoLoader {
 /** Test-only providers: Transloco backed by the real JSON files, no HTTP. */
 export const provideI18nTesting = () =>
   provideTransloco({
-    config: { availableLangs: [...SUPPORTED_LANGUAGES], defaultLang: 'en', fallbackLang: 'en', prodMode: true },
+    config: {
+      availableLangs: [...SUPPORTED_LANGUAGES],
+      defaultLang: 'en',
+      fallbackLang: 'en',
+      prodMode: true,
+    },
     loader: InlineTranslationLoader,
   });

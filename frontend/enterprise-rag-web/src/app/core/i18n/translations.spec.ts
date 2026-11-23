@@ -2,7 +2,11 @@ import ar from '../../../assets/i18n/ar.json';
 import de from '../../../assets/i18n/de.json';
 import en from '../../../assets/i18n/en.json';
 
-const flatten = (obj: object, prefix = '', out: Record<string, unknown> = {}): Record<string, unknown> => {
+const flatten = (
+  obj: object,
+  prefix = '',
+  out: Record<string, unknown> = {},
+): Record<string, unknown> => {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? `${prefix}.${k}` : k;
     if (v !== null && typeof v === 'object') flatten(v, key, out);

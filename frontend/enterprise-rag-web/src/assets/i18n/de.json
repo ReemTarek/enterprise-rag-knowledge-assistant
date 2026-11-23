@@ -39,5 +39,87 @@
     "tooManyRequests": "Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
     "passwordChangeRequired": "Sie müssen Ihr Passwort ändern, bevor Sie fortfahren.",
     "validation": "Einige der eingegebenen Werte sind ungültig."
+  },
+  "nav": {
+    "main": "Hauptnavigation",
+    "openMenu": "Navigationsmenü öffnen",
+    "knowledgeBases": "Wissensdatenbanken",
+    "administration": "Verwaltung"
+  },
+  "user": {
+    "menu": "Kontomenü",
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  },
+  "title": {
+    "login": "Anmelden",
+    "changePassword": "Passwort ändern",
+    "knowledgeBases": "Wissensdatenbanken",
+    "admin": "Verwaltung",
+    "settings": "Einstellungen",
+    "forbidden": "Zugriff verweigert",
+    "notFound": "Seite nicht gefunden"
+  },
+  "login": {
+    "heading": "Anmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "error": {
+      "invalid": "Ungültige E-Mail-Adresse oder ungültiges Passwort.",
+      "rateLimited": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut."
+    },
+    "validation": {
+      "emailRequired": "Geben Sie Ihre E-Mail-Adresse ein.",
+      "emailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein.",
+      "passwordRequired": "Geben Sie Ihr Passwort ein."
+    }
+  },
+  "changePassword": {
+    "heading": "Passwort ändern",
+    "banner": "Sie müssen Ihr Passwort ändern, bevor Sie fortfahren können.",
+    "current": "Aktuelles Passwort",
+    "new": "Neues Passwort",
+    "confirm": "Neues Passwort bestätigen",
+    "submit": "Passwort ändern",
+    "hint": "Mindestens 12 Zeichen mit Großbuchstabe, Kleinbuchstabe und Ziffer.",
+    "validation": {
+      "required": "Dieses Feld ist erforderlich.",
+      "minLength": "Das Passwort muss mindestens 12 Zeichen lang sein.",
+      "maxLength": "Das Passwort darf höchstens 128 Zeichen lang sein.",
+      "upper": "Verwenden Sie mindestens einen Großbuchstaben.",
+      "lower": "Verwenden Sie mindestens einen Kleinbuchstaben.",
+      "digit": "Verwenden Sie mindestens eine Ziffer.",
+      "mismatch": "Die Passwörter stimmen nicht überein.",
+      "sameAsCurrent": "Das neue Passwort muss sich vom aktuellen unterscheiden."
+    },
+    "error": {
+      "rejected": "Das Passwort konnte nicht geändert werden. Prüfen Sie Ihr aktuelles Passwort und die Anforderungen und versuchen Sie es erneut.",
+      "rateLimited": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut."
+    }
+  },
+  "settings": {
+    "heading": "Einstellungen",
+    "language": "Sprache",
+    "security": "Sicherheit",
+    "changePassword": "Passwort ändern"
+  },
+  "forbidden": {
+    "heading": "Zugriff verweigert",
+    "body": "Sie haben keine Berechtigung, diese Seite anzuzeigen.",
+    "home": "Zurück zum Start"
+  },
+  "notFound": {
+    "heading": "Seite nicht gefunden",
+    "body": "Die gesuchte Seite existiert nicht.",
+    "home": "Zurück zum Start"
+  },
+  "kb": {
+    "title": "Wissensdatenbanken",
+    "placeholder": "Ihre Wissensdatenbanken werden hier angezeigt."
+  },
+  "admin": {
+    "title": "Verwaltung",
+    "placeholder": "Die Verwaltungswerkzeuge werden hier angezeigt."
   }
 }

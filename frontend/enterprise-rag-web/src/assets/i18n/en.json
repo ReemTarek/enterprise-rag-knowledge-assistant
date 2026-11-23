@@ -39,5 +39,87 @@
     "tooManyRequests": "Too many requests. Please wait a moment and try again.",
     "passwordChangeRequired": "You must change your password before continuing.",
     "validation": "Some of the entered values are not valid."
+  },
+  "nav": {
+    "main": "Main navigation",
+    "openMenu": "Open navigation menu",
+    "knowledgeBases": "Knowledge bases",
+    "administration": "Administration"
+  },
+  "user": {
+    "menu": "Account menu",
+    "settings": "Settings",
+    "logout": "Sign out"
+  },
+  "title": {
+    "login": "Sign in",
+    "changePassword": "Change password",
+    "knowledgeBases": "Knowledge bases",
+    "admin": "Administration",
+    "settings": "Settings",
+    "forbidden": "Access denied",
+    "notFound": "Page not found"
+  },
+  "login": {
+    "heading": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "error": {
+      "invalid": "Invalid email or password.",
+      "rateLimited": "Too many attempts. Please wait a few minutes and try again."
+    },
+    "validation": {
+      "emailRequired": "Enter your email address.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Enter your password."
+    }
+  },
+  "changePassword": {
+    "heading": "Change password",
+    "banner": "You must change your password before you can continue.",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "submit": "Change password",
+    "hint": "At least 12 characters, with an upper-case letter, a lower-case letter and a digit.",
+    "validation": {
+      "required": "This field is required.",
+      "minLength": "The password must have at least 12 characters.",
+      "maxLength": "The password must have at most 128 characters.",
+      "upper": "Include at least one upper-case letter.",
+      "lower": "Include at least one lower-case letter.",
+      "digit": "Include at least one digit.",
+      "mismatch": "Passwords do not match.",
+      "sameAsCurrent": "The new password must be different from the current one."
+    },
+    "error": {
+      "rejected": "The password could not be changed. Check your current password and the requirements, then try again.",
+      "rateLimited": "Too many attempts. Please wait a few minutes and try again."
+    }
+  },
+  "settings": {
+    "heading": "Settings",
+    "language": "Language",
+    "security": "Security",
+    "changePassword": "Change password"
+  },
+  "forbidden": {
+    "heading": "Access denied",
+    "body": "You do not have permission to view this page.",
+    "home": "Back to start"
+  },
+  "notFound": {
+    "heading": "Page not found",
+    "body": "The page you are looking for does not exist.",
+    "home": "Back to start"
+  },
+  "kb": {
+    "title": "Knowledge bases",
+    "placeholder": "Your knowledge bases will appear here."
+  },
+  "admin": {
+    "title": "Administration",
+    "placeholder": "Administration tools will appear here."
   }
 }

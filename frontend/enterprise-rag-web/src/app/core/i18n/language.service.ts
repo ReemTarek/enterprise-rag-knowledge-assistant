@@ -19,7 +19,9 @@ export class LanguageService {
   private readonly lang = signal<SupportedLanguage>('en');
 
   readonly current: Signal<SupportedLanguage> = this.lang.asReadonly();
-  readonly dir: Signal<'ltr' | 'rtl'> = computed(() => (RTL_LANGUAGES.includes(this.lang()) ? 'rtl' : 'ltr'));
+  readonly dir: Signal<'ltr' | 'rtl'> = computed(() =>
+    RTL_LANGUAGES.includes(this.lang()) ? 'rtl' : 'ltr',
+  );
 
   /** Picks stored language, else the browser language if supported, else English. */
   init(): void {

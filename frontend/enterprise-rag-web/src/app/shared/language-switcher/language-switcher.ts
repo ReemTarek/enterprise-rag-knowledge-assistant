@@ -3,7 +3,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { LanguageService, SUPPORTED_LANGUAGES, SupportedLanguage } from '../../core/i18n/language.service';
+import {
+  LanguageService,
+  SUPPORTED_LANGUAGES,
+  SupportedLanguage,
+} from '../../core/i18n/language.service';
 
 @Component({
   selector: 'app-language-switcher',

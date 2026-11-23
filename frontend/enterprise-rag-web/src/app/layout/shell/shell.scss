@@ -1,0 +1,45 @@
+.bar {
+  gap: 4px;
+}
+.brand {
+  font: var(--mat-sys-title-medium);
+  margin-inline-end: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav {
+  display: flex;
+  gap: 4px;
+}
+.active {
+  background: var(--mat-sys-secondary-container);
+}
+.spacer {
+  flex: 1 1 auto;
+}
+.who {
+  padding-block: 8px;
+  padding-inline: 16px;
+}
+.name {
+  font: var(--mat-sys-title-small);
+}
+.email {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+.content {
+  display: block;
+  padding: 16px;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+@media (max-width: 599.98px) {
+  .brand {
+    max-inline-size: 40vw;
+  }
+}
