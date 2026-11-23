@@ -33,7 +33,7 @@
     "unauthorized": "Your session has expired. Please sign in again.",
     "forbidden": "You do not have permission to do this.",
     "notFound": "The requested item was not found.",
-    "conflict": "This item was changed by someone else. Reload and try again.",
+    "conflict": "This conflicts with the current state. Reload and try again.",
     "preconditionFailed": "The item has changed since you opened it. Reload and try again.",
     "preconditionRequired": "The request is missing the required version information.",
     "tooManyRequests": "Too many requests. Please wait a moment and try again.",

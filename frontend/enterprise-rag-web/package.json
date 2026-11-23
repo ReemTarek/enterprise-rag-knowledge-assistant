@@ -14,6 +14,9 @@
     "i18n:check": "node scripts/check-i18n-parity.mjs src/assets/i18n"
   },
   "private": true,
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+  },
   "packageManager": "npm@11.20.0",
   "dependencies": {
     "@angular/cdk": "^22.3.0",

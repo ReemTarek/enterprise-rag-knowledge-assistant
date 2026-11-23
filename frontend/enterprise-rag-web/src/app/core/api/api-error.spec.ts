@@ -4,8 +4,9 @@ import { NETWORK_ERROR_TYPE, PROBLEM_TYPES, problemTypeForStatus } from './probl
 
 describe('ApiError / problem types', () => {
   it('ProblemTypes_MatchServerUris', () => {
-    // Literal copy of src/EnterpriseRag.API/Http/ProblemTypes.cs (and docs/API_DESIGN.md "Error format").
-    // If the server changes a URI, this list and PROBLEM_TYPES must change together.
+    // Hand-copied from src/EnterpriseRag.API/Http/ProblemTypes.cs (and docs/API_DESIGN.md "Error format"): pins the
+    // values the client relies on. Drift against the real server file is caught by scripts/problem-types-sync.test.mjs
+    // (npm run test:guard, part of npm run lint), which reads ProblemTypes.cs itself.
     const serverUris = [
       'https://enterprise-rag.local/problems/validation',
       'https://enterprise-rag.local/problems/bad-request',

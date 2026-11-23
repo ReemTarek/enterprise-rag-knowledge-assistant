@@ -11,7 +11,10 @@ export interface ProblemDetails {
 /** Prefix of every server problem type (src/EnterpriseRag.API/Http/ProblemTypes.cs `Base`). */
 export const PROBLEM_TYPE_BASE = 'https://enterprise-rag.local/problems/';
 
-/** Exact copies of the URIs in src/EnterpriseRag.API/Http/ProblemTypes.cs. Clients branch on these, never on title. */
+/**
+ * Exact copies of the URIs in src/EnterpriseRag.API/Http/ProblemTypes.cs (checked against that file by
+ * scripts/problem-types-sync.test.mjs). Clients branch on these, never on title.
+ */
 export const PROBLEM_TYPES = {
   validation: 'https://enterprise-rag.local/problems/validation',
   badRequest: 'https://enterprise-rag.local/problems/bad-request',

@@ -33,7 +33,7 @@
     "unauthorized": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
     "forbidden": "Sie haben keine Berechtigung für diese Aktion.",
     "notFound": "Das angeforderte Element wurde nicht gefunden.",
-    "conflict": "Dieses Element wurde von jemand anderem geändert. Laden Sie neu und versuchen Sie es erneut.",
+    "conflict": "Dies steht im Konflikt mit dem aktuellen Stand. Laden Sie neu und versuchen Sie es erneut.",
     "preconditionFailed": "Das Element wurde geändert, seit Sie es geöffnet haben. Laden Sie neu und versuchen Sie es erneut.",
     "preconditionRequired": "Der Anfrage fehlt die erforderliche Versionsangabe.",
     "tooManyRequests": "Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
