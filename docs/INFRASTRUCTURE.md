@@ -123,6 +123,26 @@ Prerequisites: Node >= 22.22.3 (24 or 26 also fine) and npm 11. From `frontend/e
 To point at another API, edit the `target` values in `proxy.conf.json` (or run
 `npx ng serve --proxy-config <other-file>.json`).
 
+### Full-stack local run (API + Angular)
+
+Start order: (1) Compose SQL and migrations (above), (2) the API, (3) `npm start`.
+
+1. API, in Release, from the API project directory (so `appsettings.json` is found), without the launch profile, with
+   the env vars from the table above:
+   `cd src/EnterpriseRag.API && ASPNETCORE_URLS=http://127.0.0.1:5180 dotnet run -c Release --no-launch-profile`.
+   5180 is the port `proxy.conf.json` expects (the API launch-profile port).
+2. `cd frontend/enterprise-rag-web && npm ci && npm start`, then open http://localhost:4200 (the client) - the API is
+   reached through the proxy at `http://localhost:4200/api/...` and `/health/ready`.
+3. First sign-in of the seeded admin (`Seed__AdminEmail` / `Seed__AdminPassword`): the login succeeds with
+   `mustChangePassword: true`, the client sends you to the change-password screen, and every other API call answers 403
+   `password-change-required` until you change the password (the same access token works afterwards).
+4. Cookie note: the refresh cookie is `Secure`. Browsers accept and send `Secure` cookies on `http://localhost`, so the
+   dev setup works; curl over http does not resend it automatically, pass `-H "Cookie: refresh_token=..."` manually to
+   `/api/auth/*`.
+5. Stop both processes; `docker compose down -v` deletes the database; delete the throwaway `.env`.
+
+Verified on 2026-11-23 with curl through the proxy (see `docs/PROJECT_PROGRESS.md`).
+
 
 ## Later
 

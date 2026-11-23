@@ -29,3 +29,7 @@ Arabic switches `<html dir>` to `rtl`; write CSS with logical properties (`margi
 - **Add a language:** add the code to `SUPPORTED_LANGUAGES` (and `RTL_LANGUAGES` if right-to-left) in `core/i18n/language.service.ts`,
   create `src/assets/i18n/<code>.json`, add it to `langs` in `scripts/check-i18n-parity.mjs`, and add `language.name.<code>` to every file.
 - The chosen language (only) is stored in `localStorage['lang']`.
+
+## More
+
+Architecture, auth flow, CSP plan and the manual verification checklist: `docs/FRONTEND.md`; decisions: `docs/ARCHITECTURE_DECISIONS/0005-angular-client-auth-and-i18n.md`.

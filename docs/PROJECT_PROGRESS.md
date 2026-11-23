@@ -1,9 +1,47 @@
 # Project Progress
 
 ## Current phase
-Phase 2a (Identity and Knowledge Bases, backend) is complete on branch `phase-2-identity-kb`: the whole-branch final
-review was done and its must-fix findings are fixed (one fix wave, below). **Pending merge approval.** NOT merged to
-main. Phase 1 (branch `phase-1-foundation`) was completed earlier.
+Phase 2b (Angular client shell) is complete on branch `phase-2b-angular-shell`, **pending the final branch review**.
+NOT merged to main. Phase 2a (backend, 401 tests) is merged on main; Phase 1 was completed earlier.
+
+### Phase 2b (branch `phase-2b-angular-shell`, `git log --oneline main..HEAD`)
+- 99e9794 docs: Phase 2b implementation plan
+- a120cb8 feat(web): scaffold Angular 22 app with Material, lint, proxy and CI job
+- 844fcf2 fix(web): run guard self-test as part of lint
+- 38180de feat(web): runtime i18n with Arabic RTL, English and German
+- c39377a feat(web): auth store, api client and refresh interceptor
+- 456b5f7 feat(web): shell, routing, guards, login and forced password change
+- 9cff1e8 fix(web): align client password policy with server; pin must-change on the real router
+- f85f78a feat(web): knowledge bases and membership UI
+- 4e8d3f9 feat(web): admin user management
+- d06b115 fix(web): pin non-dismissable temp-password dialog in tests; keep it open across navigation
+- docs: phase 2b complete (pending review) (this commit: FRONTEND.md, ADR 0005, INFRASTRUCTURE, this file)
+
+Verification (2026-11-23, real runs, HEAD d06b115 plus docs):
+- `npm run lint`: passes (ng lint clean; unsafe-code guard OK; guard self-test 10/10; i18n parity OK).
+- `npm run test:ci`: 28 files, 200 tests, all pass.
+- `npm run build` (production): succeeds with one warning - initial bundle 546.99 kB raw / 132.24 kB transfer vs the
+  500 kB warning budget (error budget 1 MB). Budgets unchanged. Lazy chunks 1.2-84.6 kB raw (20 chunks).
+- `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities.
+- End-to-end through the dev proxy (Compose SQL, migrations, Release API on 5180, `npm start` on 4200, curl against
+  http://localhost:4200): `GET /` 200 with `<app-root>`; `/assets/i18n/{ar,en,de}.json` 200 JSON; `/health/ready` 200;
+  login of the seeded admin 200 with `accessToken`, `mustChangePassword:true` and
+  `Set-Cookie: refresh_token=...; path=/api/auth; secure; samesite=strict; httponly`; `GET /api/knowledge-bases` 403
+  `.../problems/password-change-required`; `POST /api/auth/password` 204; same bearer `GET /api/knowledge-bases` 200;
+  `POST /api/knowledge-bases` 201 with `ETag`; `GET /api/admin/users` 200. Processes stopped, `docker compose down -v`,
+  throwaway `.env` deleted.
+- **UI click-through (login -> forced change -> create KB -> members -> admin -> language switch incl. RTL) was NOT
+  performed**: no browser-automation tool was available. The manual checklist is in `docs/FRONTEND.md`; the user must
+  confirm it.
+- CSP finding: the production `index.html` contains one inline script (critical-CSS loader), inline styles and Google
+  Fonts loaded from fonts.gstatic.com; plan in `docs/FRONTEND.md` (applied in Phase 11). No `eval` in the build.
+- Rough scan of `src`: no TODO/FIXME; one `console.error` (bootstrap failure in `main.ts`); no hard-coded English UI strings found.
+
+Phase 2b decisions: ADR 0005 (Angular 22 zoneless + Material + Vitest; in-memory access token + HttpOnly refresh cookie,
+single-flight refresh; Transloco runtime i18n; same-origin dev proxy/no CORS; returnUrl sanitising; ApiError mapping by
+problem type; one-time temporary-password dialog).
+
+Phase 2a note (history): the section below describes Phase 2a, which is merged.
 
 ## Completed milestones
 Phase 1 (from main @ f3df10c): toolchain and docs scaffold, solution skeleton, architecture tests, Domain base types,
@@ -93,8 +131,8 @@ Earlier verification (f58691b): 362 tests (Domain 16, Application 90, Architectu
 - Migrations: src/EnterpriseRag.Infrastructure/Persistence/Migrations
 
 ## Pending work
-- Merge approval for Phase 2a.
-- Phase 2b plan (must include the items below).
+- Phase 2b final branch review, then merge approval (Phase 2a is merged).
+- User: confirm the UI click-through checklist in docs/FRONTEND.md.
 
 Plan items for Phase 2b/3 (from the final review):
 - I6: a knowledge base whose owners are all deactivated is unmanageable (no admin back door). Decide: an admin
@@ -105,8 +143,43 @@ Plan items for Phase 2b/3 (from the final review):
 - 2b frontend: handle 403 `.../problems/password-change-required` by routing to the change-password screen.
 
 ## Known issues
+Phase 2b (client; deferred minor findings from per-task reviews, grouped by task):
+- Overall: initial bundle 547 kB exceeds the 500 kB warning budget (warning only; raise to about 600 kB with justification or reduce);
+  the CI `frontend` job has not run on GitHub; UI click-through not performed (user to confirm); Arabic and German texts have
+  no native-speaker review; `Retry-After` is not surfaced (generic 429 text); leaving a knowledge base and admin assign-owner
+  do not exist server-side (I6, M9 above; plan with Phase 3); CSP not applied (inline script/styles, Google Fonts, see FRONTEND.md).
+- T1: add `engines` to package.json; make strict/strictTemplates explicit in tsconfig; stale .vscode/launch.json ng-test entry
+  (Karma); comment on guard false positives; doc stray blank line / "Node 26 used locally"; index.html default title.
+- T2: i18n loader URL absolute (/assets/...) ignores base href; init() ignores navigator.languages; no missingHandler (key echo);
+  item lacks dir; angular.json reformat churn; storage-failure test does not assert fallback language; Material menu RTL not
+  visually verified.
+- T3 (items 1, 3, 4 recommended before merge): (1) any failed refresh (network/429/5xx) logs the user out - narrow to 401/403/400;
+  (2) restoreSession timeout can orphan a rotated cookie; (3) logout racing an in-flight refresh can re-sign the client in
+  (session generation counter); (4) returnUrl sanitising (done in T4 login; keep verified); (5) drop ApiError.problem.detail
+  when status >= 500; (6) untested "already on /change-password" branch; (7) weak AuthStore_DoesNotExposeToken test;
+  (8) NO_BEARER exact-path matching (trailing slash).
+- T4: change-password/login success can stick when sanitised returnUrl equals the current URL; settings link carries no
+  returnUrl; compact nav menu loses active marker and name block in role=menu; cross-field errors not tied via aria-describedby
+  and no focus to first invalid field; logout has no timeout; authGuard only on parent canActivate (add canActivateChild);
+  static index.html English title; 429 text generic; no shared loading component.
+- T5 (items 1, 2, 3, 6 recommended before merge): (1) initial bundle 547 kB > 500 kB budget; (2) user-picker: stale in-flight
+  search repopulates after the query drops below 2 characters, directory errors swallowed silently; (3) 403 in members tab
+  keeps owner controls and does not refresh myRole, 404 mapped to a misleading notAMember; (4) late responses can apply to the
+  wrong KB when :id changes (cancel/switchMap; reset() does not clear correlationId); (5) page-size change does not reset to
+  page 1, paginator destroyed on every page change (focus loss), no aria-busy, empty state shows "0 of 0" paginator;
+  (6) create dialog: whitespace-only name passes required, Cancel/Escape active while pending; (7) no confirm or specific UX for
+  self-demotion/self-removal; (8) no explanation for non-owners on the detail page; (9) locale data registered by side-effect
+  imports in lazy chunks only (a future DatePipe elsewhere could throw); (10) TranslatedPaginatorIntl subscription leak
+  (takeUntilDestroyed); (11) component specs lack httpMock.verify(), mid-edit refreshAfterMembership untested, 428 banner text
+  unasserted; (12) unused keys kb.list.open, kb.detail.updated.
+- T6: focus loss after paging/reload (use overlay progress + aria-busy); page-size change does not reset to page 1; expired
+  lockout dates still shown; displayName maxLength on untrimmed value; focus not moved to email on 409; row-action errors hide
+  the correlation id; reset-password offered on own row; create result object retains temporaryPassword (delete after
+  hand-off); tests leak navigator.clipboard/documentElement.dir overrides; orphan keys title.admin/admin.title; copy status not
+  re-announced.
+
 Environment:
-- CI has not run on GitHub yet; SDK 11.0.100 resolution via setup-dotnet is unverified.
+- CI has not run on GitHub yet (backend and frontend jobs); SDK 11.0.100 resolution via setup-dotnet is unverified.
 - Some package versions are pinned lower than latest because of the earlier Smart App Control block (now disabled).
 - docs/INFRASTRUCTURE.md shows the database password inline in example commands.
 
@@ -149,9 +222,8 @@ Deferred Phase 2a findings (from per-task reviews; items fixed in the final wave
   takes about 3.3 minutes.
 
 ## Failing tests/outstanding validation
-- None failing. Not yet validated: CI on GitHub; embedding model choice (Phase 4).
+- None failing. Not yet validated: CI on GitHub; the UI in a real browser; embedding model choice (Phase 4).
 
 ## Next task
-1. Phase 2a merge decision (pending approval).
-2. Phase 2b plan: Angular shell, login UI (incl. forced password change), RTL/i18n (ar/en/de), same-origin dev proxy;
-   decide I6 and M9.
+1. Phase 2b final branch review (fix the recommended-before-merge items), user confirms the UI checklist, merge decision.
+2. Phase 3 plan: documents - upload, S3/local storage, versions, lifecycle + UI (include leave-KB and admin assign-owner).
