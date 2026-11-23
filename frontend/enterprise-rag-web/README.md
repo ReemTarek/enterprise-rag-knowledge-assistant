@@ -9,7 +9,7 @@ Angular 22 client (standalone components, SCSS, Angular Material, zoneless, Vite
 | `npm ci` | Install locked dependencies |
 | `npm start` | Dev server (http://localhost:4200) with the API proxy |
 | `npm run test:ci` | Single non-interactive test run |
-| `npm run lint` | angular-eslint + `scripts/check-no-unsafe.mjs` |
+| `npm run lint` | angular-eslint + `scripts/check-no-unsafe.mjs` + guard self-test |
 | `npm run test:guard` | Self-test of the unsafe-pattern guard |
 | `npm run build` | Production build into `dist/` |
 

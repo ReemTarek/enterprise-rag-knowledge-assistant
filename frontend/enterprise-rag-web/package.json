@@ -10,7 +10,7 @@
     "test:ci": "ng test --watch=false",
     "check:unsafe": "node scripts/check-no-unsafe.mjs src",
     "test:guard": "node --test scripts",
-    "lint": "ng lint && npm run check:unsafe"
+    "lint": "ng lint && npm run check:unsafe && npm run test:guard"
   },
   "private": true,
   "packageManager": "npm@11.20.0",
