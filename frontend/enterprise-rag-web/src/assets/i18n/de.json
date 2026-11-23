@@ -58,7 +58,8 @@
     "admin": "Verwaltung",
     "settings": "Einstellungen",
     "forbidden": "Zugriff verweigert",
-    "notFound": "Seite nicht gefunden"
+    "notFound": "Seite nicht gefunden",
+    "adminUsers": "Benutzerverwaltung"
   },
   "login": {
     "heading": "Anmelden",
@@ -207,7 +208,59 @@
   },
   "admin": {
     "title": "Verwaltung",
-    "placeholder": "Die Verwaltungswerkzeuge werden hier angezeigt."
+    "users": {
+      "title": "Benutzerverwaltung",
+      "loading": "Benutzer werden geladen...",
+      "empty": "Es gibt noch keine Benutzer.",
+      "tableLabel": "Benutzer",
+      "new": "Neuer Benutzer",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "noLockout": "Nicht gesperrt",
+      "mustChange": "Passwortänderung erforderlich",
+      "deactivate": "Deaktivieren",
+      "resetPassword": "Passwort zurücksetzen",
+      "deactivateTitle": "Benutzer deaktivieren?",
+      "deactivateMessage": "{{name}} wird abgemeldet und kann sich nicht mehr anmelden.",
+      "resetTitle": "Passwort zurücksetzen?",
+      "resetMessage": "Für {{name}} wird ein neues temporäres Passwort erstellt. Alle Sitzungen werden beendet.",
+      "cannotDeactivateSelf": "Sie können Ihr eigenes Konto nicht deaktivieren.",
+      "columns": {
+        "displayName": "Name",
+        "email": "E-Mail",
+        "role": "Rolle",
+        "active": "Status",
+        "lockout": "Gesperrt bis",
+        "mustChange": "Passwortänderung"
+      },
+      "create": {
+        "title": "Neuer Benutzer",
+        "email": "E-Mail",
+        "displayName": "Anzeigename",
+        "role": "Rolle",
+        "submit": "Benutzer erstellen"
+      },
+      "validation": {
+        "emailRequired": "Geben Sie eine E-Mail-Adresse ein.",
+        "emailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein.",
+        "emailMaxLength": "Die E-Mail-Adresse darf höchstens 256 Zeichen lang sein.",
+        "emailDuplicate": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
+        "nameRequired": "Geben Sie einen Anzeigenamen ein.",
+        "nameMaxLength": "Der Anzeigename darf höchstens 200 Zeichen lang sein."
+      }
+    },
+    "role": {
+      "User": "Benutzer",
+      "Admin": "Administrator"
+    },
+    "tempPassword": {
+      "title": "Temporäres Passwort",
+      "label": "Temporäres Passwort",
+      "warning": "Dieses Passwort wird nur einmal angezeigt. Der Benutzer muss es bei der ersten Anmeldung ändern. Geben Sie es sicher weiter.",
+      "copied": "Kopiert",
+      "copyFailed": "Automatisches Kopieren nicht möglich. Markieren Sie das Passwort und kopieren Sie es manuell.",
+      "acknowledge": "Ich habe dieses Passwort gespeichert"
+    }
   },
   "userPicker": {
     "label": "Benutzer suchen",

@@ -58,7 +58,8 @@
     "admin": "Administration",
     "settings": "Settings",
     "forbidden": "Access denied",
-    "notFound": "Page not found"
+    "notFound": "Page not found",
+    "adminUsers": "User management"
   },
   "login": {
     "heading": "Sign in",
@@ -207,7 +208,59 @@
   },
   "admin": {
     "title": "Administration",
-    "placeholder": "Administration tools will appear here."
+    "users": {
+      "title": "User management",
+      "loading": "Loading users...",
+      "empty": "There are no users yet.",
+      "tableLabel": "Users",
+      "new": "New user",
+      "active": "Active",
+      "inactive": "Inactive",
+      "noLockout": "Not locked out",
+      "mustChange": "Must change password",
+      "deactivate": "Deactivate",
+      "resetPassword": "Reset password",
+      "deactivateTitle": "Deactivate user?",
+      "deactivateMessage": "{{name}} will be signed out and will no longer be able to sign in.",
+      "resetTitle": "Reset password?",
+      "resetMessage": "A new temporary password will be created for {{name}}. All of their sessions will be ended.",
+      "cannotDeactivateSelf": "You cannot deactivate your own account.",
+      "columns": {
+        "displayName": "Name",
+        "email": "Email",
+        "role": "Role",
+        "active": "Status",
+        "lockout": "Locked until",
+        "mustChange": "Password change"
+      },
+      "create": {
+        "title": "New user",
+        "email": "Email",
+        "displayName": "Display name",
+        "role": "Role",
+        "submit": "Create user"
+      },
+      "validation": {
+        "emailRequired": "Enter an email address.",
+        "emailInvalid": "Enter a valid email address.",
+        "emailMaxLength": "The email address can have at most 256 characters.",
+        "emailDuplicate": "A user with this email address already exists.",
+        "nameRequired": "Enter a display name.",
+        "nameMaxLength": "The display name can have at most 200 characters."
+      }
+    },
+    "role": {
+      "User": "User",
+      "Admin": "Administrator"
+    },
+    "tempPassword": {
+      "title": "Temporary password",
+      "label": "Temporary password",
+      "warning": "This password is shown only once. The user must change it at first sign-in. Share it securely.",
+      "copied": "Copied",
+      "copyFailed": "Could not copy automatically. Select the password and copy it manually.",
+      "acknowledge": "I have saved this password"
+    }
   },
   "userPicker": {
     "label": "Find a user",

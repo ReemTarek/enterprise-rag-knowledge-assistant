@@ -32,10 +32,8 @@ export const routes: Routes = [
       },
       {
         path: 'admin',
-        title: 'title.admin',
         canActivate: [adminGuard],
-        loadComponent: () =>
-          import('./features/admin/admin-placeholder').then((m) => m.AdminPlaceholder),
+        loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
       },
       {
         path: 'settings',

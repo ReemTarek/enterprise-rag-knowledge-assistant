@@ -1,0 +1,51 @@
+:host {
+  display: block;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 16px;
+}
+h1 {
+  margin: 0;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  inline-size: 100%;
+}
+.text {
+  overflow-wrap: anywhere;
+}
+.chip {
+  display: inline-block;
+  padding-block: 2px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-medium);
+}
+.chip.off {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.empty {
+  padding-block: 32px;
+  text-align: center;
+}
+.retry {
+  margin-block-start: 12px;
+}
+.action-error {
+  margin-block-end: 16px;
+}

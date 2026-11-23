@@ -57,10 +57,10 @@ describe('Routes', () => {
     expect(h.routeNativeElement!.textContent).toContain('Access denied');
   });
 
-  it('Routes_Admin_LoadsAdminPlaceholder', async () => {
+  it('Routes_Admin_RedirectsToUsersPage', async () => {
     configure({ auth: true, admin: true });
     await RouterTestingHarness.create('/admin');
-    expect(TestBed.inject(Router).url).toBe('/admin');
+    expect(TestBed.inject(Router).url).toBe('/admin/users');
   });
 
   it('Routes_SetsTranslatedTitle', async () => {

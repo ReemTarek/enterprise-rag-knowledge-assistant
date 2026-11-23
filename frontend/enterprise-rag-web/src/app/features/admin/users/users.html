@@ -1,0 +1,138 @@
+<div class="head">
+  <h1>{{ 'admin.users.title' | transloco }}</h1>
+  <button mat-flat-button type="button" data-testid="new-user" (click)="create()">
+    {{ 'admin.users.new' | transloco }}
+  </button>
+</div>
+
+@if (actionErrorKey(); as key) {
+  <div class="action-error" data-testid="action-error">
+    <app-error-banner [messageKey]="key" />
+  </div>
+}
+
+@switch (state()) {
+  @case ('loading') {
+    <p role="status" aria-live="polite">{{ 'admin.users.loading' | transloco }}</p>
+    <mat-progress-bar mode="indeterminate" [attr.aria-label]="'common.loading' | transloco" />
+  }
+  @case ('error') {
+    <div data-testid="list-error">
+      <app-error-banner [messageKey]="errorKey()" [correlationId]="correlationId()" />
+      <button mat-stroked-button type="button" class="retry" data-testid="retry" (click)="load()">
+        {{ 'common.retry' | transloco }}
+      </button>
+    </div>
+  }
+  @case ('ready') {
+    @if (items().length === 0 && total() === 0) {
+      <div class="empty" data-testid="empty-state" role="status">
+        <p>{{ 'admin.users.empty' | transloco }}</p>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table
+          mat-table
+          [dataSource]="items()"
+          [attr.aria-label]="'admin.users.tableLabel' | transloco"
+        >
+          <ng-container matColumnDef="displayName">
+            <th mat-header-cell *matHeaderCellDef>
+              {{ 'admin.users.columns.displayName' | transloco }}
+            </th>
+            <td mat-cell *matCellDef="let u">
+              <span class="text">{{ u.displayName }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef>{{ 'admin.users.columns.email' | transloco }}</th>
+            <td mat-cell *matCellDef="let u">
+              <span class="text" dir="ltr">{{ u.email }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef>{{ 'admin.users.columns.role' | transloco }}</th>
+            <td mat-cell *matCellDef="let u">
+              <span class="chip">{{ 'admin.role.' + u.globalRole | transloco }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="active">
+            <th mat-header-cell *matHeaderCellDef>{{ 'admin.users.columns.active' | transloco }}</th>
+            <td mat-cell *matCellDef="let u">
+              <span class="chip" [class.off]="!u.isActive">{{
+                (u.isActive ? 'admin.users.active' : 'admin.users.inactive') | transloco
+              }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="lockout">
+            <th mat-header-cell *matHeaderCellDef>
+              {{ 'admin.users.columns.lockout' | transloco }}
+            </th>
+            <td mat-cell *matCellDef="let u">
+              @if (u.lockoutEndUtc) {
+                {{ u.lockoutEndUtc | date: 'medium' : undefined : lang() }}
+              } @else {
+                <span aria-hidden="true">&mdash;</span>
+                <span class="cdk-visually-hidden">{{ 'admin.users.noLockout' | transloco }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="mustChange">
+            <th mat-header-cell *matHeaderCellDef>
+              {{ 'admin.users.columns.mustChange' | transloco }}
+            </th>
+            <td mat-cell *matCellDef="let u">
+              @if (u.mustChangePassword) {
+                <span class="chip" data-testid="must-change">{{
+                  'admin.users.mustChange' | transloco
+                }}</span>
+              } @else {
+                <span aria-hidden="true">&mdash;</span>
+                <span class="cdk-visually-hidden">{{ 'common.no' | transloco }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>
+              <span class="cdk-visually-hidden">{{ 'common.actions' | transloco }}</span>
+            </th>
+            <td mat-cell *matCellDef="let u">
+              <div class="actions">
+                <button
+                  mat-button
+                  type="button"
+                  data-testid="reset"
+                  [disabled]="busy()"
+                  (click)="resetPassword(u)"
+                >
+                  {{ 'admin.users.resetPassword' | transloco }}
+                </button>
+                @if (u.isActive && u.id !== currentUserId()) {
+                  <button
+                    mat-button
+                    type="button"
+                    data-testid="deactivate"
+                    [disabled]="busy()"
+                    (click)="deactivate(u)"
+                  >
+                    {{ 'admin.users.deactivate' | transloco }}
+                  </button>
+                }
+              </div>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let u; columns: columns" data-testid="user-row"></tr>
+        </table>
+      </div>
+    }
+    <mat-paginator
+      [length]="total()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizes"
+      [showFirstLastButtons]="true"
+      (page)="onPage($event)"
+    />
+  }
+}
