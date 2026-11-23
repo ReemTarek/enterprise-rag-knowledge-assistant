@@ -1,0 +1,99 @@
+<h2>{{ 'kb.members.heading' | transloco }}</h2>
+
+@if (errorKey(); as key) {
+  <div data-testid="members-error" class="error">
+    <app-error-banner [messageKey]="key" [correlationId]="correlationId()" />
+  </div>
+}
+
+@if (canManage()) {
+  <section class="add" [attr.aria-label]="'kb.members.add' | transloco">
+    <app-user-picker
+      class="picker"
+      [search]="search"
+      [excludeIds]="memberIds()"
+      (selected)="picked.set($event)"
+    />
+    <mat-form-field class="role">
+      <mat-label>{{ 'kb.members.roleLabel' | transloco }}</mat-label>
+      <mat-select [formControl]="newRole" data-testid="new-role">
+        @for (r of roles; track r) {
+          <mat-option [value]="r">{{ 'kb.role.' + r | transloco }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button
+      mat-flat-button
+      type="button"
+      class="add-btn"
+      data-testid="add-member"
+      [disabled]="!picked() || pending()"
+      (click)="add()"
+    >
+      {{ 'kb.members.addSubmit' | transloco }}
+    </button>
+  </section>
+} @else {
+  <p class="hint">{{ 'kb.members.ownerOnly' | transloco }}</p>
+}
+
+@if (loading() && members().length === 0) {
+  <p role="status" aria-live="polite">{{ 'kb.members.loading' | transloco }}</p>
+} @else {
+  <div class="table-wrap">
+    <table class="members" [attr.aria-label]="'kb.members.tableLabel' | transloco">
+      <thead>
+        <tr>
+          <th scope="col">{{ 'kb.members.columns.name' | transloco }}</th>
+          <th scope="col">{{ 'kb.members.columns.email' | transloco }}</th>
+          <th scope="col">{{ 'kb.members.columns.role' | transloco }}</th>
+          @if (canManage()) {
+            <th scope="col">{{ 'kb.members.columns.actions' | transloco }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of members(); track m.userId) {
+          <tr data-testid="member-row">
+            <td>{{ m.displayName }}</td>
+            <td>{{ m.email }}</td>
+            <td>
+              @if (canManage()) {
+                <mat-select
+                  class="role-select"
+                  data-testid="role-select"
+                  [value]="m.role"
+                  [disabled]="pending()"
+                  [attr.aria-label]="
+                    'kb.members.changeRoleFor' | transloco: { name: m.displayName }
+                  "
+                  (selectionChange)="changeRole(m, $event)"
+                >
+                  @for (r of roles; track r) {
+                    <mat-option [value]="r">{{ 'kb.role.' + r | transloco }}</mat-option>
+                  }
+                </mat-select>
+              } @else {
+                <span class="chip">{{ 'kb.role.' + m.role | transloco }}</span>
+              }
+            </td>
+            @if (canManage()) {
+              <td>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  data-testid="remove-member"
+                  [disabled]="pending()"
+                  [attr.aria-label]="'kb.members.removeFor' | transloco: { name: m.displayName }"
+                  (click)="remove(m)"
+                >
+                  {{ 'kb.members.remove' | transloco }}
+                </button>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

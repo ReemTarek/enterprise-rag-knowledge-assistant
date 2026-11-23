@@ -116,10 +116,102 @@
   },
   "kb": {
     "title": "Wissensdatenbanken",
-    "placeholder": "Ihre Wissensdatenbanken werden hier angezeigt."
+    "role": {
+      "Viewer": "Betrachter",
+      "Editor": "Bearbeiter",
+      "Owner": "Besitzer"
+    },
+    "paginator": {
+      "itemsPerPage": "Einträge pro Seite",
+      "next": "Nächste Seite",
+      "previous": "Vorherige Seite",
+      "first": "Erste Seite",
+      "last": "Letzte Seite",
+      "range": "{{start}} - {{end}} von {{total}}",
+      "rangeEmpty": "0 von {{total}}"
+    },
+    "list": {
+      "new": "Neue Wissensdatenbank",
+      "loading": "Wissensdatenbanken werden geladen...",
+      "empty": "Sie sind noch in keiner Wissensdatenbank Mitglied.",
+      "emptyHint": "Legen Sie eine an, um zu beginnen.",
+      "tableLabel": "Wissensdatenbanken",
+      "open": "{{name}} öffnen",
+      "columns": {
+        "name": "Name",
+        "description": "Beschreibung",
+        "role": "Meine Rolle",
+        "updated": "Aktualisiert"
+      }
+    },
+    "create": {
+      "title": "Neue Wissensdatenbank",
+      "name": "Name",
+      "description": "Beschreibung",
+      "submit": "Erstellen"
+    },
+    "validation": {
+      "nameRequired": "Geben Sie einen Namen ein.",
+      "nameMaxLength": "Der Name darf höchstens 200 Zeichen lang sein.",
+      "descriptionMaxLength": "Die Beschreibung darf höchstens 2000 Zeichen lang sein.",
+      "server": "Der Server hat diesen Wert abgelehnt."
+    },
+    "detail": {
+      "back": "Alle Wissensdatenbanken",
+      "myRole": "Ihre Rolle: {{role}}",
+      "tabs": {
+        "label": "Bereiche der Wissensdatenbank",
+        "details": "Details",
+        "members": "Mitglieder"
+      },
+      "noDescription": "Keine Beschreibung.",
+      "updated": "Zuletzt aktualisiert {{date}}",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "save": "Änderungen speichern",
+      "cancel": "Abbrechen",
+      "changedElsewhere": "Diese Wissensdatenbank wurde an anderer Stelle geändert. Laden Sie sie neu, um die aktuelle Version zu sehen; Ihre Änderungen wurden nicht gespeichert.",
+      "reload": "Neu laden",
+      "loading": "Wird geladen...",
+      "deleteTitle": "Wissensdatenbank löschen",
+      "deleteMessage": "„{{name}}“ löschen? Sie verschwindet für alle Mitglieder.",
+      "deleted": "Wissensdatenbank gelöscht.",
+      "saved": "Änderungen gespeichert."
+    },
+    "members": {
+      "heading": "Mitglieder",
+      "tableLabel": "Mitglieder dieser Wissensdatenbank",
+      "loading": "Mitglieder werden geladen...",
+      "columns": {
+        "name": "Name",
+        "email": "E-Mail",
+        "role": "Rolle",
+        "actions": "Aktionen"
+      },
+      "ownerOnly": "Nur Besitzer können Mitglieder ändern.",
+      "add": "Mitglied hinzufügen",
+      "addSubmit": "Hinzufügen",
+      "roleLabel": "Rolle",
+      "changeRoleFor": "Rolle von {{name}} ändern",
+      "remove": "Entfernen",
+      "removeFor": "{{name}} entfernen",
+      "removeTitle": "Mitglied entfernen",
+      "removeMessage": "{{name}} aus dieser Wissensdatenbank entfernen?",
+      "added": "Mitglied hinzugefügt.",
+      "removed": "Mitglied entfernt.",
+      "lastOwner": "Eine Wissensdatenbank muss mindestens einen Besitzer behalten.",
+      "alreadyMember": "Dieser Benutzer ist bereits Mitglied.",
+      "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
+      "notAMember": "Dieser Benutzer ist kein Mitglied mehr."
+    }
   },
   "admin": {
     "title": "Verwaltung",
     "placeholder": "Die Verwaltungswerkzeuge werden hier angezeigt."
+  },
+  "userPicker": {
+    "label": "Benutzer suchen",
+    "hint": "Geben Sie mindestens 2 Zeichen eines Namens oder einer E-Mail-Adresse ein.",
+    "none": "Keine passenden Benutzer."
   }
 }

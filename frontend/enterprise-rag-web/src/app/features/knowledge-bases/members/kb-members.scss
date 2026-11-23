@@ -1,0 +1,52 @@
+:host {
+  display: block;
+}
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-block-end: 16px;
+}
+.picker {
+  flex: 1 1 280px;
+}
+.role {
+  inline-size: 180px;
+}
+.add-btn {
+  margin-block-start: 8px;
+}
+.hint {
+  color: var(--mat-sys-on-surface-variant);
+}
+.error {
+  margin-block-end: 16px;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+.members {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+.members th,
+.members td {
+  padding-block: 8px;
+  padding-inline: 12px;
+  text-align: start;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  overflow-wrap: anywhere;
+}
+.role-select {
+  min-inline-size: 120px;
+}
+.chip {
+  display: inline-block;
+  padding-block: 2px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-medium);
+}

@@ -1,0 +1,54 @@
+:host {
+  display: block;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 16px;
+}
+h1 {
+  margin: 0;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  inline-size: 100%;
+}
+.row {
+  cursor: pointer;
+}
+.row:hover {
+  background: var(--mat-sys-surface-container-high);
+}
+.name {
+  font-weight: 500;
+}
+.description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-inline-size: 40ch;
+  overflow-wrap: anywhere;
+}
+.chip {
+  display: inline-block;
+  padding-block: 2px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-medium);
+}
+.empty {
+  padding-block: 32px;
+  text-align: center;
+}
+.retry {
+  margin-block-start: 12px;
+}

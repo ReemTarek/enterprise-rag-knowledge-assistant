@@ -1,0 +1,128 @@
+@switch (state()) {
+  @case ('loading') {
+    <p role="status" aria-live="polite">{{ 'kb.detail.loading' | transloco }}</p>
+  }
+  @case ('notFound') {
+    <app-not-found />
+  }
+  @case ('error') {
+    <a routerLink="/knowledge-bases">{{ 'kb.detail.back' | transloco }}</a>
+    <div data-testid="detail-error">
+      @if (errorKey(); as key) {
+        <app-error-banner [messageKey]="key" [correlationId]="correlationId()" />
+      }
+      <button mat-stroked-button type="button" class="gap" (click)="load()">
+        {{ 'common.retry' | transloco }}
+      </button>
+    </div>
+  }
+  @case ('ready') {
+    @if (kb(); as k) {
+      <a class="back" routerLink="/knowledge-bases">{{ 'kb.detail.back' | transloco }}</a>
+
+      <header class="head">
+        <div class="titles">
+          <h1 data-testid="kb-name">{{ k.name }}</h1>
+          <p class="description" data-testid="kb-description">
+            {{ k.description || ('kb.detail.noDescription' | transloco) }}
+          </p>
+          <p class="role">
+            <span class="chip">{{
+              'kb.detail.myRole' | transloco: { role: 'kb.role.' + k.myRole | transloco }
+            }}</span>
+          </p>
+        </div>
+        @if (canOwn() && !editing()) {
+          <div class="actions">
+            <button
+              mat-stroked-button
+              type="button"
+              data-testid="edit"
+              [disabled]="pending()"
+              (click)="startEdit()"
+            >
+              {{ 'kb.detail.edit' | transloco }}
+            </button>
+            <button
+              mat-flat-button
+              type="button"
+              data-testid="delete"
+              [disabled]="pending()"
+              (click)="delete()"
+            >
+              {{ 'kb.detail.delete' | transloco }}
+            </button>
+          </div>
+        }
+      </header>
+
+      @if (conflict(); as kind) {
+        <div class="changed" data-testid="changed-banner" role="alert">
+          <p>
+            {{
+              (kind === 'changed' ? 'kb.detail.changedElsewhere' : 'errors.preconditionRequired')
+                | transloco
+            }}
+          </p>
+          <button mat-stroked-button type="button" data-testid="reload" (click)="reload()">
+            {{ 'kb.detail.reload' | transloco }}
+          </button>
+        </div>
+      }
+      @if (errorKey(); as key) {
+        <div data-testid="detail-action-error" class="gap">
+          <app-error-banner [messageKey]="key" [correlationId]="correlationId()" />
+        </div>
+      }
+
+      @if (editing()) {
+        <form class="edit" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <mat-form-field>
+            <mat-label>{{ 'kb.create.name' | transloco }}</mat-label>
+            <input matInput formControlName="name" autocomplete="off" required />
+            @if (form.controls.name.hasError('required')) {
+              <mat-error>{{ 'kb.validation.nameRequired' | transloco }}</mat-error>
+            } @else if (form.controls.name.hasError('maxlength')) {
+              <mat-error>{{ 'kb.validation.nameMaxLength' | transloco }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>{{ 'kb.create.description' | transloco }}</mat-label>
+            <textarea matInput formControlName="description" rows="4"></textarea>
+            @if (form.controls.description.hasError('maxlength')) {
+              <mat-error>{{ 'kb.validation.descriptionMaxLength' | transloco }}</mat-error>
+            }
+          </mat-form-field>
+          <div class="actions">
+            <button mat-button type="button" [disabled]="pending()" (click)="cancelEdit()">
+              {{ 'kb.detail.cancel' | transloco }}
+            </button>
+            <button mat-flat-button type="submit" data-testid="save" [disabled]="pending()">
+              {{ 'kb.detail.save' | transloco }}
+            </button>
+          </div>
+        </form>
+      }
+
+      <mat-tab-group [aria-label]="'kb.detail.tabs.label' | transloco" animationDuration="0ms">
+        <mat-tab [label]="'kb.detail.tabs.details' | transloco">
+          <ng-template matTabContent>
+            <dl class="facts">
+              <dt>{{ 'kb.list.columns.updated' | transloco }}</dt>
+              <dd>{{ k.updatedAt | date: 'medium' : undefined : lang() }}</dd>
+            </dl>
+          </ng-template>
+        </mat-tab>
+        <mat-tab [label]="'kb.detail.tabs.members' | transloco">
+          <ng-template matTabContent>
+            <app-kb-members
+              [kbId]="k.id"
+              [canManage]="canOwn()"
+              (membershipChanged)="refreshAfterMembership()"
+            />
+          </ng-template>
+        </mat-tab>
+      </mat-tab-group>
+    }
+  }
+}

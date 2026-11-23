@@ -116,10 +116,102 @@
   },
   "kb": {
     "title": "Knowledge bases",
-    "placeholder": "Your knowledge bases will appear here."
+    "role": {
+      "Viewer": "Viewer",
+      "Editor": "Editor",
+      "Owner": "Owner"
+    },
+    "paginator": {
+      "itemsPerPage": "Items per page",
+      "next": "Next page",
+      "previous": "Previous page",
+      "first": "First page",
+      "last": "Last page",
+      "range": "{{start}} - {{end}} of {{total}}",
+      "rangeEmpty": "0 of {{total}}"
+    },
+    "list": {
+      "new": "New knowledge base",
+      "loading": "Loading knowledge bases...",
+      "empty": "You are not a member of any knowledge base yet.",
+      "emptyHint": "Create one to get started.",
+      "tableLabel": "Knowledge bases",
+      "open": "Open {{name}}",
+      "columns": {
+        "name": "Name",
+        "description": "Description",
+        "role": "My role",
+        "updated": "Updated"
+      }
+    },
+    "create": {
+      "title": "New knowledge base",
+      "name": "Name",
+      "description": "Description",
+      "submit": "Create"
+    },
+    "validation": {
+      "nameRequired": "Enter a name.",
+      "nameMaxLength": "The name can have at most 200 characters.",
+      "descriptionMaxLength": "The description can have at most 2000 characters.",
+      "server": "The server rejected this value."
+    },
+    "detail": {
+      "back": "All knowledge bases",
+      "myRole": "Your role: {{role}}",
+      "tabs": {
+        "label": "Knowledge base sections",
+        "details": "Details",
+        "members": "Members"
+      },
+      "noDescription": "No description.",
+      "updated": "Last updated {{date}}",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save changes",
+      "cancel": "Cancel",
+      "changedElsewhere": "This knowledge base was changed elsewhere. Reload it to see the latest version; your edits are not saved.",
+      "reload": "Reload",
+      "loading": "Loading...",
+      "deleteTitle": "Delete knowledge base",
+      "deleteMessage": "Delete \"{{name}}\"? It will disappear for all members.",
+      "deleted": "Knowledge base deleted.",
+      "saved": "Changes saved."
+    },
+    "members": {
+      "heading": "Members",
+      "tableLabel": "Members of this knowledge base",
+      "loading": "Loading members...",
+      "columns": {
+        "name": "Name",
+        "email": "Email",
+        "role": "Role",
+        "actions": "Actions"
+      },
+      "ownerOnly": "Only owners can change members.",
+      "add": "Add member",
+      "addSubmit": "Add",
+      "roleLabel": "Role",
+      "changeRoleFor": "Change role of {{name}}",
+      "remove": "Remove",
+      "removeFor": "Remove {{name}}",
+      "removeTitle": "Remove member",
+      "removeMessage": "Remove {{name}} from this knowledge base?",
+      "added": "Member added.",
+      "removed": "Member removed.",
+      "lastOwner": "A knowledge base must keep at least one owner.",
+      "alreadyMember": "This user is already a member.",
+      "userNotFound": "This user could not be found.",
+      "notAMember": "This user is no longer a member."
+    }
   },
   "admin": {
     "title": "Administration",
     "placeholder": "Administration tools will appear here."
+  },
+  "userPicker": {
+    "label": "Find a user",
+    "hint": "Type at least 2 characters of a name or email.",
+    "none": "No matching users."
   }
 }

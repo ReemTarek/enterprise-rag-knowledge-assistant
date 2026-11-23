@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -36,6 +36,27 @@ export class ApiClientService {
 
   delete<T = void>(url: string, options?: ApiRequestOptions): Observable<T> {
     return this.http.delete<T>(url, this.options(url, options));
+  }
+
+  /** Full responses for callers that need headers (e.g. the ETag of a knowledge base). */
+  getResponse<T>(url: string, options?: ApiRequestOptions): Observable<HttpResponse<T>> {
+    return this.http.get<T>(url, { ...this.options(url, options), observe: 'response' });
+  }
+
+  postResponse<T>(
+    url: string,
+    body: unknown,
+    options?: ApiRequestOptions,
+  ): Observable<HttpResponse<T>> {
+    return this.http.post<T>(url, body, { ...this.options(url, options), observe: 'response' });
+  }
+
+  putResponse<T>(
+    url: string,
+    body: unknown,
+    options?: ApiRequestOptions,
+  ): Observable<HttpResponse<T>> {
+    return this.http.put<T>(url, body, { ...this.options(url, options), observe: 'response' });
   }
 
   private options(url: string, options?: ApiRequestOptions) {

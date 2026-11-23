@@ -1,0 +1,85 @@
+<div class="head">
+  <h1>{{ 'kb.title' | transloco }}</h1>
+  <button mat-flat-button type="button" data-testid="new-kb" (click)="create()">
+    {{ 'kb.list.new' | transloco }}
+  </button>
+</div>
+
+@switch (state()) {
+  @case ('loading') {
+    <p role="status" aria-live="polite">{{ 'kb.list.loading' | transloco }}</p>
+    <mat-progress-bar mode="indeterminate" [attr.aria-label]="'common.loading' | transloco" />
+  }
+  @case ('error') {
+    <div data-testid="list-error">
+      <app-error-banner [messageKey]="errorKey()" [correlationId]="correlationId()" />
+      <button mat-stroked-button type="button" class="retry" data-testid="retry" (click)="load()">
+        {{ 'common.retry' | transloco }}
+      </button>
+    </div>
+  }
+  @case ('ready') {
+    @if (items().length === 0 && total() === 0) {
+      <div class="empty" data-testid="empty-state" role="status">
+        <p>{{ 'kb.list.empty' | transloco }}</p>
+        <p>{{ 'kb.list.emptyHint' | transloco }}</p>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table
+          mat-table
+          [dataSource]="items()"
+          [attr.aria-label]="'kb.list.tableLabel' | transloco"
+        >
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>{{ 'kb.list.columns.name' | transloco }}</th>
+            <td mat-cell *matCellDef="let kb">
+              <a
+                class="name"
+                [routerLink]="['/knowledge-bases', kb.id]"
+                (click)="$event.stopPropagation()"
+                >{{ kb.name }}</a
+              >
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>
+              {{ 'kb.list.columns.description' | transloco }}
+            </th>
+            <td mat-cell *matCellDef="let kb">
+              <span class="description">{{ kb.description }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef>{{ 'kb.list.columns.role' | transloco }}</th>
+            <td mat-cell *matCellDef="let kb">
+              <span class="chip">{{ 'kb.role.' + kb.myRole | transloco }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="updated">
+            <th mat-header-cell *matHeaderCellDef>{{ 'kb.list.columns.updated' | transloco }}</th>
+            <td mat-cell *matCellDef="let kb">
+              {{ kb.updatedAt | date: 'medium' : undefined : lang() }}
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr
+            mat-row
+            *matRowDef="let kb; columns: columns"
+            class="row"
+            data-testid="kb-row"
+            (click)="open(kb)"
+          ></tr>
+        </table>
+      </div>
+    }
+    <mat-paginator
+      [length]="total()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizes"
+      [showFirstLastButtons]="true"
+      (page)="onPage($event)"
+    />
+  }
+}

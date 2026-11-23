@@ -1,0 +1,82 @@
+:host {
+  display: block;
+}
+.back {
+  display: inline-block;
+  margin-block-end: 8px;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 16px;
+}
+.titles {
+  min-inline-size: 0;
+  flex: 1 1 320px;
+}
+h1 {
+  margin-block: 0 8px;
+  overflow-wrap: anywhere;
+}
+.description {
+  margin-block: 0 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.role {
+  margin: 0;
+}
+.chip {
+  display: inline-block;
+  padding-block: 2px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-medium);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.changed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: 16px;
+  padding-block: 8px;
+  padding-inline: 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+.changed p {
+  margin: 0;
+}
+.edit {
+  display: flex;
+  flex-direction: column;
+  max-inline-size: 640px;
+  margin-block-end: 16px;
+}
+.edit .actions {
+  justify-content: flex-end;
+}
+.gap {
+  margin-block: 12px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  padding-block: 16px;
+  margin: 0;
+}
+.facts dd {
+  margin: 0;
+}

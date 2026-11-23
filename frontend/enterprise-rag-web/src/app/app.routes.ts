@@ -28,9 +28,7 @@ export const routes: Routes = [
       },
       {
         path: 'knowledge-bases',
-        title: 'title.knowledgeBases',
-        loadComponent: () =>
-          import('./features/knowledge-bases/kb-placeholder').then((m) => m.KbPlaceholder),
+        loadChildren: () => import('./features/knowledge-bases/kb.routes').then((m) => m.KB_ROUTES),
       },
       {
         path: 'admin',
