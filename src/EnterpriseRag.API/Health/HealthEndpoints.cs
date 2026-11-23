@@ -16,18 +16,19 @@ public static class HealthEndpoints
         return services;
     }
 
+    /// <summary>Probes are anonymous (orchestrators carry no token); the bodies expose names and status only.</summary>
     public static IEndpointRouteBuilder MapHealthEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapHealthChecks("/health/live", new HealthCheckOptions
         {
             Predicate = r => r.Tags.Contains(LiveTag),
             ResponseWriter = WriteResponse,
-        });
+        }).AllowAnonymous();
         endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions
         {
             Predicate = r => r.Tags.Contains(ReadyTag),
             ResponseWriter = WriteResponse,
-        });
+        }).AllowAnonymous();
         return endpoints;
     }
 

@@ -1,18 +1,12 @@
 using System.Net;
-using Testcontainers.MsSql;
+using EnterpriseRag.API.IntegrationTests.Support;
 
 namespace EnterpriseRag.API.IntegrationTests;
 
-public sealed class HealthTests : IAsyncLifetime
+[Collection(ApiDatabaseCollection.Name)]
+public sealed class HealthTests(ApiDatabaseFixture db)
 {
     private const string Sentinel = "SENTINEL_PWD_123";
-
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
-
-    public Task InitializeAsync() => _container.StartAsync();
-
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
     private static string UnreachableConnectionString =>
         $"Server=127.0.0.1,1;Database=Fake;User Id=sentinel_user;Password={Sentinel};Connect Timeout=2;TrustServerCertificate=True";
@@ -44,7 +38,7 @@ public sealed class HealthTests : IAsyncLifetime
     [Fact]
     public async Task Ready_Returns200_WhenDatabaseUp()
     {
-        await using var factory = new ApiFactory(connectionString: _container.GetConnectionString());
+        await using var factory = new ApiFactory(connectionString: db.ConnectionString);
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/health/ready");
@@ -68,7 +62,7 @@ public sealed class HealthTests : IAsyncLifetime
     [Fact]
     public async Task Ready_Body_DoesNotContainConnectionString()
     {
-        var up = _container.GetConnectionString();
+        var up = db.ConnectionString;
         var password = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(up).Password;
 
         await using (var down = new ApiFactory(connectionString: UnreachableConnectionString))

@@ -13,6 +13,10 @@ public sealed class FakeDateTimeProvider(DateTime utcNow) : IDateTimeProvider
 public sealed class FakeCurrentUser(string? userId) : ICurrentUserService
 {
     public string? UserId { get; } = userId;
+
+    public Guid? UserGuid => Guid.TryParse(UserId, out var id) ? id : null;
+
+    public bool IsAdmin => false;
 }
 
 public sealed class TestSoftDeletable : SoftDeletableEntity

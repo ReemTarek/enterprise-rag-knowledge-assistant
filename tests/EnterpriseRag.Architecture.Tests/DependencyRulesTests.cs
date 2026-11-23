@@ -16,6 +16,7 @@ public class DependencyRulesTests
     {
         "Microsoft.EntityFrameworkCore",
         "Microsoft.AspNetCore",
+        "Microsoft.AspNetCore.Identity",
         "Hangfire",
         "StackExchange.Redis",
         "RabbitMQ",
@@ -77,13 +78,40 @@ public class DependencyRulesTests
     public void Infrastructure_DoesNotDependOn_ApiWorker() =>
         AssertNoDependency(Infrastructure, "EnterpriseRag.API", "EnterpriseRag.Worker");
 
-    // No controllers exist yet, so the selection is empty and this passes trivially.
-    // The rule is still evaluated through NetArchTest and starts biting once controllers are added.
+    private static readonly string[] ExpectedControllers =
+    [
+        "AuthController", "MeController", "AdminUsersController", "UserDirectoryController",
+        "KnowledgeBasesController", "KnowledgeBaseMembersController",
+    ];
+
+    // An empty selection would make every controller rule pass vacuously, so the known controllers must be found.
     [Fact]
-    public void Controllers_DoNotDependOn_InfrastructureNamespaces() =>
+    public void Api_ContainsAllKnownControllers()
+    {
+        var names = Types.InAssembly(Api).That().HaveNameEndingWith("Controller").GetTypes().Select(t => t.Name).ToList();
+
+        Assert.NotEmpty(names);
+        Assert.All(ExpectedControllers, expected => Assert.Contains(expected, names));
+    }
+
+    // Handlers are final use-case classes; nothing derives from them.
+    [Fact]
+    public void Application_Handlers_AreSealed()
+    {
+        var handlers = Types.InAssembly(Application).That().HaveNameEndingWith("Handler");
+
+        Assert.NotEmpty(handlers.GetTypes());
+        AssertResult(handlers.Should().BeSealed().GetResult());
+    }
+
+    // Controllers talk to Application handlers only: no Infrastructure adapters and no EF Core.
+    [Theory]
+    [InlineData("EnterpriseRag.Infrastructure")]
+    [InlineData("Microsoft.EntityFrameworkCore")]
+    public void Controllers_DoNotDependOn_InfrastructureNamespaces(string forbidden) =>
         AssertResult(Types.InAssembly(Api)
             .That().HaveNameEndingWith("Controller")
-            .ShouldNot().HaveDependencyOn("EnterpriseRag.Infrastructure")
+            .ShouldNot().HaveDependencyOn(forbidden)
             .GetResult());
 
     private static void AssertNoDependency(Assembly assembly, params string[] forbidden) =>

@@ -1,6 +1,9 @@
+using EnterpriseRag.API.Auth;
 using EnterpriseRag.API.Health;
+using EnterpriseRag.API.Http;
 using EnterpriseRag.API.Middleware;
 using EnterpriseRag.API.Services;
+using EnterpriseRag.Application;
 using EnterpriseRag.Application.Abstractions;
 using EnterpriseRag.Infrastructure;
 using EnterpriseRag.Shared.Options;
@@ -28,12 +31,36 @@ builder.Host.UseSerilog((context, services, logger) =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, HttpCurrentUserService>();
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddValidatedOptions<AiOptions>(builder.Configuration, "Ai");
 builder.Services.AddValidatedOptions<RagOptions>(builder.Configuration, "Rag");
 
+builder.Services.AddControllers()
+    // Malformed JSON gets a generic model-state message instead of the parser's (which can quote the input).
+    // Enums are strings only: integers ("globalRole": 1) are rejected with 400 instead of silently mapping to a role.
+    .AddJsonOptions(options =>
+    {
+        options.AllowInputFormatterExceptionMessages = false;
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false));
+    });
+builder.Services.AddApiAuthentication();
+builder.Services.AddApiRateLimiting();
+
 builder.Services.AddApiHealthChecks();
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+    options.CustomizeProblemDetails = context =>
+    {
+        // Covers ProblemDetails produced by MVC (e.g. automatic model-validation 400s) as well: every body gets a type
+        // from the ProblemTypes scheme (framework RFC 9110 defaults are replaced), a traceId and the correlationId.
+        context.ProblemDetails.Type = ProblemTypes.Resolve(context.ProblemDetails);
+        var correlationId = CorrelationIdMiddleware.Get(context.HttpContext);
+        if (correlationId is not null)
+        {
+            context.ProblemDetails.Extensions.TryAdd("correlationId", correlationId);
+        }
+    });
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 if (builder.Environment.IsDevelopment())
@@ -54,8 +81,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/", () => "EnterpriseRag API");
+app.UseRouting();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapGet("/", () => "EnterpriseRag API").AllowAnonymous();
 app.MapHealthEndpoints();
+app.MapControllers();
 
 app.Run();
 
