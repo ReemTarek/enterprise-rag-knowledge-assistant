@@ -105,7 +105,24 @@ Ollama runs natively on Windows, outside Compose (unchanged). The API on the hos
 permissions: checkout, `setup-dotnet` (SDK from `global.json`), restore,
 `dotnet build -c Release --no-restore`, `dotnet test -c Release --no-build` (all test projects,
 including architecture tests; Testcontainers uses the runner's Docker). No secrets are used.
-No frontend job until Phase 2.
+A second job, `frontend`, runs `npm ci`, `npm run lint`, `npm run test:ci` and `npm run build` in
+`frontend/enterprise-rag-web` on Node 24.x (Active LTS; Node 26 is used locally but is not LTS yet).
+
+## Frontend (dev)
+
+Prerequisites: Node >= 22.22.3 (24 or 26 also fine) and npm 11. From `frontend/enterprise-rag-web`:
+
+- `npm ci` - install exact locked dependencies.
+- `npm start` - dev server on http://localhost:4200; `proxy.conf.json` forwards `/api` and `/health`
+  to the API at `http://127.0.0.1:5180` (start the API first).
+- `npm run test:ci` - single non-interactive run (Vitest + jsdom), exits non-zero on failure.
+- `npm run lint` - angular-eslint plus `scripts/check-no-unsafe.mjs` (bans `innerHTML`,
+  `bypassSecurityTrust`, `eval(`, token/password in web storage).
+- `npm run build` - production build into `dist/`.
+
+To point at another API, edit the `target` values in `proxy.conf.json` (or run
+`npx ng serve --proxy-config <other-file>.json`).
+
 
 ## Later
 
