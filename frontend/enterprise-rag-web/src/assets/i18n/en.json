@@ -1,0 +1,43 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "close": "Close",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "search": "Search",
+    "back": "Back",
+    "actions": "Actions",
+    "copy": "Copy"
+  },
+  "app": {
+    "name": "Enterprise RAG Knowledge Assistant"
+  },
+  "language": {
+    "name": {
+      "en": "English",
+      "de": "Deutsch",
+      "ar": "العربية"
+    },
+    "switch": "Change language"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Cannot reach the server. Check your connection and try again.",
+    "correlationId": "Reference: {{id}}",
+    "unauthorized": "Your session has expired. Please sign in again.",
+    "forbidden": "You do not have permission to do this.",
+    "notFound": "The requested item was not found.",
+    "conflict": "This item was changed by someone else. Reload and try again.",
+    "preconditionFailed": "The item has changed since you opened it. Reload and try again.",
+    "preconditionRequired": "The request is missing the required version information.",
+    "tooManyRequests": "Too many requests. Please wait a moment and try again.",
+    "passwordChangeRequired": "You must change your password before continuing.",
+    "validation": "Some of the entered values are not valid."
+  }
+}

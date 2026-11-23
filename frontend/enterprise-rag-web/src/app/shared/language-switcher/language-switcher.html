@@ -1,0 +1,22 @@
+<button
+  mat-icon-button
+  type="button"
+  [matMenuTriggerFor]="menu"
+  [attr.aria-label]="'language.switch' | transloco"
+>
+  <mat-icon aria-hidden="true">language</mat-icon>
+</button>
+<mat-menu #menu="matMenu">
+  @for (lang of languages; track lang) {
+    <button
+      mat-menu-item
+      type="button"
+      role="menuitemradio"
+      [attr.aria-checked]="language.current() === lang"
+      [attr.lang]="lang"
+      (click)="select(lang)"
+    >
+      {{ 'language.name.' + lang | transloco }}
+    </button>
+  }
+</mat-menu>

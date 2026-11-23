@@ -18,3 +18,14 @@ Angular 22 client (standalone components, SCSS, Angular Material, zoneless, Vite
 `proxy.conf.json` forwards `/api` and `/health` to `http://127.0.0.1:5180` (the API's launch-profile port).
 To use a different API, edit the `target` values, or copy the file and run
 `npx ng serve --proxy-config my-proxy.json`.
+
+## i18n
+
+Runtime translations use `@jsverse/transloco`; files live in `src/assets/i18n/{en,de,ar}.json` (nested `feature.section.key`, parameters as `{{name}}`).
+Arabic switches `<html dir>` to `rtl`; write CSS with logical properties (`margin-inline-start`, `padding-inline-end`, ...).
+
+- **Add a key:** add it to all three files, then use `{{ 'feature.section.key' | transloco }}` (or `transloco: { name: value }` for params).
+  `npm run i18n:check` (part of `lint`) and the `Translations_*` unit tests fail if keys, values or placeholders differ.
+- **Add a language:** add the code to `SUPPORTED_LANGUAGES` (and `RTL_LANGUAGES` if right-to-left) in `core/i18n/language.service.ts`,
+  create `src/assets/i18n/<code>.json`, add it to `langs` in `scripts/check-i18n-parity.mjs`, and add `language.name.<code>` to every file.
+- The chosen language (only) is stored in `localStorage['lang']`.

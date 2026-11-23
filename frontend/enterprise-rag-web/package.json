@@ -10,7 +10,8 @@
     "test:ci": "ng test --watch=false",
     "check:unsafe": "node scripts/check-no-unsafe.mjs src",
     "test:guard": "node --test scripts",
-    "lint": "ng lint && npm run check:unsafe && npm run test:guard"
+    "lint": "ng lint && npm run check:unsafe && npm run test:guard && npm run i18n:check",
+    "i18n:check": "node scripts/check-i18n-parity.mjs src/assets/i18n"
   },
   "private": true,
   "packageManager": "npm@11.20.0",
@@ -23,6 +24,7 @@
     "@angular/material": "^22.3.0",
     "@angular/platform-browser": "^22.3.0",
     "@angular/router": "^22.3.0",
+    "@jsverse/transloco": "^8.4.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

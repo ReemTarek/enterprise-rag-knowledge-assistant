@@ -1,0 +1,43 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "loading": "Wird geladen...",
+    "retry": "Erneut versuchen",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "yes": "Ja",
+    "no": "Nein",
+    "search": "Suchen",
+    "back": "Zurück",
+    "actions": "Aktionen",
+    "copy": "Kopieren"
+  },
+  "app": {
+    "name": "Enterprise RAG Wissensassistent"
+  },
+  "language": {
+    "name": {
+      "en": "English",
+      "de": "Deutsch",
+      "ar": "العربية"
+    },
+    "switch": "Sprache ändern"
+  },
+  "errors": {
+    "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "network": "Der Server ist nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "correlationId": "Referenz: {{id}}",
+    "unauthorized": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+    "forbidden": "Sie haben keine Berechtigung für diese Aktion.",
+    "notFound": "Das angeforderte Element wurde nicht gefunden.",
+    "conflict": "Dieses Element wurde von jemand anderem geändert. Laden Sie neu und versuchen Sie es erneut.",
+    "preconditionFailed": "Das Element wurde geändert, seit Sie es geöffnet haben. Laden Sie neu und versuchen Sie es erneut.",
+    "preconditionRequired": "Der Anfrage fehlt die erforderliche Versionsangabe.",
+    "tooManyRequests": "Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+    "passwordChangeRequired": "Sie müssen Ihr Passwort ändern, bevor Sie fortfahren.",
+    "validation": "Einige der eingegebenen Werte sind ungültig."
+  }
+}
