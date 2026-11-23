@@ -28,7 +28,8 @@ Describes behaviour as implemented at the end of Phase 2a. See ADR 0004 for the 
   concurrent rotation of the same token (row-version race) is handled the same way.
 - **Logout**: `POST /api/auth/logout` is anonymous - the refresh cookie is the credential, so a client whose access
   token has expired can still sign out. It revokes the token's family, always clears the cookie and succeeds silently
-  for unknown/missing cookies.
+  for unknown/missing cookies. The Angular client clears its in-memory session first and sends this call best effort
+  (5 s timeout); if it never reaches the server the cookie stays valid until expiry (see `docs/FRONTEND.md`).
 - **Lockout**: 5 consecutive wrong passwords (`Security:MaxFailedLogins`) lock the account for 15 minutes
   (`Security:LockoutMinutes`). Attempts during a lockout neither extend it nor count towards the next. Unknown,
   inactive and locked accounts burn one dummy hash verification and return the same generic 401 ("Invalid

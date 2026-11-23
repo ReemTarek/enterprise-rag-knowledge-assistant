@@ -15,7 +15,11 @@ design forbids tokens in web storage.
 - **Access token in memory, refresh through the HttpOnly cookie, single-flight refresh.** The token is a private field of
   `AuthStore` with no signal or storage; a reload restores the session through `POST /api/auth/refresh` at startup. The
   interceptor refreshes once on 401 and retries once; concurrent 401s share one refresh (important because refresh
-  tokens rotate and reuse revokes the family). A lint guard bans tokens or passwords in web storage, `innerHTML`,
+  tokens rotate and reuse revokes the family). Only a refresh rejected with 400/401/403 ends the session; network
+  errors, 429 and 5xx keep it and surface the refresh's own error (the refresh rate limit is per IP and shared behind a
+  proxy, so treating those as "signed out" would log users out at random). Logout clears the store synchronously and
+  revokes server-side best effort (5 s timeout); a session generation counter in `AuthStore` makes a token that
+  arrives after logout be dropped instead of signing the client back in. A lint guard bans tokens or passwords in web storage, `innerHTML`,
   `bypassSecurityTrust*` and `eval(`. Cost: a tab reload costs one refresh call, and XSS could still use the in-memory
   token during its lifetime (mitigated by Angular's template escaping, the guard and the planned CSP).
 - **Runtime i18n with Transloco, not compile-time `@angular/localize`.** Compile-time i18n builds one bundle per locale
@@ -30,8 +34,9 @@ design forbids tokens in web storage.
 - **`returnUrl` sanitisation.** After login or password change the app navigates only to an in-app path: it must start
   with a single `/`, may not start with `//` or `/\`, and is applied with `navigateByUrl`. This prevents open
   redirects through `?returnUrl=`.
-- **`ApiError` mapping by problem `type`.** The server's stable `type` URIs (`PROBLEM_TYPES`, tested against the server
-  list) select a translation key (`messageKeyFor`). The server `detail` and status text are never displayed; the
+- **`ApiError` mapping by problem `type`.** The server's stable `type` URIs (`PROBLEM_TYPES`; a `test:guard` script
+  compares them with `src/EnterpriseRag.API/Http/ProblemTypes.cs` read from the repository and skips if that file is
+  absent; the unit test only compares against a hand-copied list) select a translation key (`messageKeyFor`). The server `detail` and status text are never displayed; the
   correlation id is shown for 5xx only. Unknown types fall back to a generic message.
 - **Temporary password shown once.** Admin create/reset returns a temporary password a single time. The dialog is not
   dismissable (no Escape, no backdrop click, `closeOnNavigation: false` so the Back button cannot discard it unseen),
@@ -43,10 +48,20 @@ design forbids tokens in web storage.
 ## Consequences
 - Language, RTL and theme logic live in the client; the server only returns codes and types.
 - Every new user-visible string must be added to three files; CI fails otherwise.
-- The initial bundle is 547 kB (warning budget 500 kB); lazy routes keep feature code out of it. Raising the warning
-  budget or trimming the shell is open.
-- The built `index.html` has an inline script (critical-CSS loader) and inline styles; the CSP must use a hash, disable
-  critical CSS inlining, or accept the trade-off (details in `docs/FRONTEND.md`). Fonts currently come from Google; self-hosting
-  is recommended before Phase 11.
+- The initial bundle is about 547 kB raw / 132 kB transfer, the baseline for Angular + Material + Transloco with every
+  feature lazy; the initial warning budget is 600 kB (error 1 MB) and is revisited when exceeded.
+- The built `index.html` has an inline script (critical-CSS loader) and inline styles, and fonts come from Google (see
+  "Decision recorded" below).
+
+## Decision recorded: self-hosted fonts, no inline loader script
+The app currently depends on Google Fonts at runtime (`fonts.googleapis.com` / `fonts.gstatic.com` for Roboto and
+Material Symbols) and at build time (the production build inlines the Google Fonts CSS), and the production
+`index.html` contains an inline critical-CSS loader script. GDPR (German users; the visitor's IP goes to Google), a
+strict CSP (`script-src 'self'`, `font-src 'self'`), PWA/offline use and Arabic glyph coverage all require self-hosting:
+`@fontsource/roboto`, `material-symbols` and optionally Noto Sans Arabic from npm; remove the Google `<link>`s; set
+`optimization.styles.inlineCritical: false` and `optimization.fonts: false`; and call
+`MatIconRegistry.setDefaultFontSetClass('material-symbols-outlined', 'mat-ligature-font')`. This is the **first task of
+Phase 3 and must be done before any non-dev deployment**; it is not implemented in Phase 2b. Details in
+`docs/FRONTEND.md`.
 - Authorization stays on the server; client guards (`adminGuard`, `mustChangeGuard`) are usability only.
 - No native-speaker review of Arabic and German has been done.

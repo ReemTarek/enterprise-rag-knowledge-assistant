@@ -1,8 +1,10 @@
 # Project Progress
 
 ## Current phase
-Phase 2b (Angular client shell) is complete on branch `phase-2b-angular-shell`, **pending the final branch review**.
-NOT merged to main. Phase 2a (backend, 401 tests) is merged on main; Phase 1 was completed earlier.
+Phase 2b (Angular client shell) is complete on branch `phase-2b-angular-shell`; the final branch review is done and its
+fix wave is applied. **Pending merge approval.** Remaining gates: the user confirms the UI click-through checklist in
+`docs/FRONTEND.md`, and the first CI run on GitHub (backend + frontend jobs) passes. NOT merged to main. Phase 2a
+(backend, 401 tests) is merged on main; Phase 1 was completed earlier.
 
 ### Phase 2b (branch `phase-2b-angular-shell`, `git log --oneline main..HEAD`)
 - 99e9794 docs: Phase 2b implementation plan
@@ -15,9 +17,43 @@ NOT merged to main. Phase 2a (backend, 401 tests) is merged on main; Phase 1 was
 - f85f78a feat(web): knowledge bases and membership UI
 - 4e8d3f9 feat(web): admin user management
 - d06b115 fix(web): pin non-dismissable temp-password dialog in tests; keep it open across navigation
-- docs: phase 2b complete (pending review) (this commit: FRONTEND.md, ADR 0005, INFRASTRUCTURE, this file)
+- 2b1c17f docs: phase 2b complete (pending review)
+- Final-review fix wave:
+  - db6b6cb fix(web): refresh-failure policy, logout race and timeout (I1, I2, I8)
+  - 3ada4e1 fix(web): members 403 handling, create dialog, user picker, paginator leak, dialogs (I3, I4, I5, M1, M4)
+  - a5921e8 chore(web): bundle budget, engines, conflict wording, problem-type drift check (I6, M7, M2, I9 test)
+  - docs: record CSP/fonts decision and correct frontend docs (I7, I9; this commit: FRONTEND.md, ADR 0005, SECURITY.md,
+    this file)
 
-Verification (2026-11-23, real runs, HEAD d06b115 plus docs):
+Fixed in the final-review wave (moved from known issues):
+- I1 only a refresh rejected with 400/401/403 ends the session; network/429/5xx keep it, all queued requests fail with
+  the refresh's ApiError, the next 401 refreshes again (was T3 item 1).
+- I2 `AuthStore` session generation (bumped by `clear()`); a token arriving after logout is dropped (no re-sign-in, no
+  retry); `logout()` clears synchronously, detaches the in-flight refresh, revokes best effort with a 5 s timeout; the
+  shell navigates at once (was T3 item 3, T4 "logout has no timeout").
+- I3 members tab: 403/404 on add/change/remove makes the detail page re-read the KB (demoted owner loses the controls,
+  vanished KB becomes Not Found); change/remove 404 shows the generic not-found text; unused `kb.members.notAMember`
+  removed (was T5 item 3).
+- I4 KB create dialog: `notBlank` name (shared validator, also on the KB edit form), `disableClose` + disabled Cancel
+  while pending (was T5 item 6).
+- I5 user picker: a short query cancels the in-flight search; failed searches show `userPicker.error` (was T5 item 2).
+- I6 initial warning budget 600 kB with the reason in FRONTEND.md "Bundle and budget"; no build warning (was T5 item 1).
+- I7 decision recorded (ADR 0005, FRONTEND.md): self-host fonts, drop the inline loader script - first task of Phase 3.
+- I8 tests: `RestoreSession_MustChange_SetsFlag` and real-router `MustChange_AfterRestoreSession_LandsOnChangePassword`.
+- I9 docs corrected (locale data registration, guard wording, guard test counts, PROBLEM_TYPES drift check now reads
+  `ProblemTypes.cs` via `scripts/problem-types-sync.test.mjs`).
+- M1 `TranslatedPaginatorIntl` unsubscribes on host destroy (was T5 item 10); M2 neutral `errors.conflict` text (en/de/ar);
+  M4 create-user and create-KB dialogs use `closeOnNavigation: false`; M7 `engines.node` in package.json (was T1).
+
+Verification after the fix wave (2026-11-23, real runs):
+- `npm run lint`: passes (ng lint clean; unsafe-code guard OK; `test:guard` 12/12 = 6 guard + 4 parity + 2 problem-type
+  drift; i18n parity OK).
+- `npm run test:ci`: 29 files, 232 tests, all pass.
+- `npm run build` (production): succeeds with **no budget warning**; initial 547.61 kB raw / 132.31 kB transfer (main
+  539.57 kB + styles 8.04 kB), 20 lazy chunks.
+- `npm ci` on Node 26.13.1 with the new `engines` field: no EBADENGINE.
+
+Earlier verification (2026-11-23, real runs, HEAD d06b115 plus docs):
 - `npm run lint`: passes (ng lint clean; unsafe-code guard OK; guard self-test 10/10; i18n parity OK).
 - `npm run test:ci`: 28 files, 200 tests, all pass.
 - `npm run build` (production): succeeds with one warning - initial bundle 546.99 kB raw / 132.24 kB transfer vs the
@@ -34,7 +70,8 @@ Verification (2026-11-23, real runs, HEAD d06b115 plus docs):
   performed**: no browser-automation tool was available. The manual checklist is in `docs/FRONTEND.md`; the user must
   confirm it.
 - CSP finding: the production `index.html` contains one inline script (critical-CSS loader), inline styles and Google
-  Fonts loaded from fonts.gstatic.com; plan in `docs/FRONTEND.md` (applied in Phase 11). No `eval` in the build.
+  Fonts loaded from fonts.gstatic.com; decision recorded (self-host fonts, `inlineCritical: false`; first task of
+  Phase 3), CSP header plan in `docs/FRONTEND.md` (applied in Phase 11). No `eval` in the build.
 - Rough scan of `src`: no TODO/FIXME; one `console.error` (bootstrap failure in `main.ts`); no hard-coded English UI strings found.
 
 Phase 2b decisions: ADR 0005 (Angular 22 zoneless + Material + Vitest; in-memory access token + HttpOnly refresh cookie,
@@ -131,8 +168,10 @@ Earlier verification (f58691b): 362 tests (Domain 16, Application 90, Architectu
 - Migrations: src/EnterpriseRag.Infrastructure/Persistence/Migrations
 
 ## Pending work
-- Phase 2b final branch review, then merge approval (Phase 2a is merged).
-- User: confirm the UI click-through checklist in docs/FRONTEND.md.
+- Phase 2b merge approval (final review and its fix wave are done; Phase 2a is merged). Gates: the user confirms the
+  UI click-through checklist in docs/FRONTEND.md; the first CI run on GitHub passes.
+- First task of Phase 3 (before any non-dev deployment): self-host fonts and remove the inline loader script (ADR 0005
+  "Decision recorded").
 
 Plan items for Phase 2b/3 (from the final review):
 - I6: a knowledge base whose owners are all deactivated is unmanageable (no admin back door). Decide: an admin
@@ -144,34 +183,31 @@ Plan items for Phase 2b/3 (from the final review):
 
 ## Known issues
 Phase 2b (client; deferred minor findings from per-task reviews, grouped by task):
-- Overall: initial bundle 547 kB exceeds the 500 kB warning budget (warning only; raise to about 600 kB with justification or reduce);
-  the CI `frontend` job has not run on GitHub; UI click-through not performed (user to confirm); Arabic and German texts have
-  no native-speaker review; `Retry-After` is not surfaced (generic 429 text); leaving a knowledge base and admin assign-owner
-  do not exist server-side (I6, M9 above; plan with Phase 3); CSP not applied (inline script/styles, Google Fonts, see FRONTEND.md).
-- T1: add `engines` to package.json; make strict/strictTemplates explicit in tsconfig; stale .vscode/launch.json ng-test entry
+- Overall: the CI `frontend` job has not run on GitHub; UI click-through not performed (user to confirm); Arabic and
+  German texts have no native-speaker review; `Retry-After` is not surfaced (generic 429 text); leaving a knowledge base
+  and admin assign-owner do not exist server-side (I6, M9 above; plan with Phase 3); CSP not applied and fonts still
+  from Google (decided: self-host as the first Phase 3 task); sign-out while the API is unreachable leaves the refresh
+  cookie valid until expiry (documented in FRONTEND.md "Known limitations").
+- T1: make strict/strictTemplates explicit in tsconfig; stale .vscode/launch.json ng-test entry
   (Karma); comment on guard false positives; doc stray blank line / "Node 26 used locally"; index.html default title.
 - T2: i18n loader URL absolute (/assets/...) ignores base href; init() ignores navigator.languages; no missingHandler (key echo);
   item lacks dir; angular.json reformat churn; storage-failure test does not assert fallback language; Material menu RTL not
   visually verified.
-- T3 (items 1, 3, 4 recommended before merge): (1) any failed refresh (network/429/5xx) logs the user out - narrow to 401/403/400;
-  (2) restoreSession timeout can orphan a rotated cookie; (3) logout racing an in-flight refresh can re-sign the client in
-  (session generation counter); (4) returnUrl sanitising (done in T4 login; keep verified); (5) drop ApiError.problem.detail
+- T3 (items 1 and 3 fixed in the final-review wave): (2) restoreSession timeout can orphan a rotated cookie (documented;
+  costs one extra login); (4) returnUrl sanitising (done in T4 login; keep verified); (5) drop ApiError.problem.detail
   when status >= 500; (6) untested "already on /change-password" branch; (7) weak AuthStore_DoesNotExposeToken test;
   (8) NO_BEARER exact-path matching (trailing slash).
 - T4: change-password/login success can stick when sanitised returnUrl equals the current URL; settings link carries no
   returnUrl; compact nav menu loses active marker and name block in role=menu; cross-field errors not tied via aria-describedby
-  and no focus to first invalid field; logout has no timeout; authGuard only on parent canActivate (add canActivateChild);
+  and no focus to first invalid field; authGuard only on parent canActivate (add canActivateChild);
   static index.html English title; 429 text generic; no shared loading component.
-- T5 (items 1, 2, 3, 6 recommended before merge): (1) initial bundle 547 kB > 500 kB budget; (2) user-picker: stale in-flight
-  search repopulates after the query drops below 2 characters, directory errors swallowed silently; (3) 403 in members tab
-  keeps owner controls and does not refresh myRole, 404 mapped to a misleading notAMember; (4) late responses can apply to the
+- T5 (items 1, 2, 3, 6, 10 fixed in the final-review wave): (4) late responses can apply to the
   wrong KB when :id changes (cancel/switchMap; reset() does not clear correlationId); (5) page-size change does not reset to
   page 1, paginator destroyed on every page change (focus loss), no aria-busy, empty state shows "0 of 0" paginator;
-  (6) create dialog: whitespace-only name passes required, Cancel/Escape active while pending; (7) no confirm or specific UX for
-  self-demotion/self-removal; (8) no explanation for non-owners on the detail page; (9) locale data registered by side-effect
-  imports in lazy chunks only (a future DatePipe elsewhere could throw); (10) TranslatedPaginatorIntl subscription leak
-  (takeUntilDestroyed); (11) component specs lack httpMock.verify(), mid-edit refreshAfterMembership untested, 428 banner text
-  unasserted; (12) unused keys kb.list.open, kb.detail.updated.
+  (7) no confirm or specific UX for self-demotion/self-removal; (8) no explanation for non-owners on the detail page;
+  (9) locale data registered by side-effect imports in lazy chunks only (documented rule in FRONTEND.md; a future DatePipe
+  elsewhere must import it); (11) component specs lack httpMock.verify(), mid-edit refreshAfterMembership untested, 428
+  banner text unasserted; (12) unused keys kb.list.open, kb.detail.updated.
 - T6: focus loss after paging/reload (use overlay progress + aria-busy); page-size change does not reset to page 1; expired
   lockout dates still shown; displayName maxLength on untrimmed value; focus not moved to email on 409; row-action errors hide
   the correlation id; reset-password offered on own row; create result object retains temporaryPassword (delete after
@@ -225,5 +261,6 @@ Deferred Phase 2a findings (from per-task reviews; items fixed in the final wave
 - None failing. Not yet validated: CI on GitHub; the UI in a real browser; embedding model choice (Phase 4).
 
 ## Next task
-1. Phase 2b final branch review (fix the recommended-before-merge items), user confirms the UI checklist, merge decision.
-2. Phase 3 plan: documents - upload, S3/local storage, versions, lifecycle + UI (include leave-KB and admin assign-owner).
+1. Phase 2b: user confirms the UI checklist, first CI run passes, merge decision.
+2. Phase 3 plan: first task self-hosted fonts / no inline loader script (ADR 0005); then documents - upload, S3/local
+   storage, versions, lifecycle + UI (include leave-KB and admin assign-owner).
