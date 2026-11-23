@@ -1,11 +1,13 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
 import { authInterceptor } from '../../../core/auth/auth.interceptor';
 import { PROBLEM_TYPES } from '../../../core/api/problem-details';
 import { provideI18nTesting } from '../../../core/i18n/i18n.testing';
 import { KB_ID, makeKb, problemBody } from '../kb.testing';
+import { KbCreateDialog } from '../create-dialog/kb-create-dialog';
 import { KbList } from './kb-list';
 
 describe('KbList', () => {
@@ -96,6 +98,20 @@ describe('KbList', () => {
     await f.whenStable();
     el(f).querySelector<HTMLElement>('[data-testid="kb-row"]')!.click();
     expect(nav).toHaveBeenCalledWith(['/knowledge-bases', KB_ID]);
+  });
+
+  it('KbCreate_DialogSurvivesNavigation', async () => {
+    const f = await setup();
+    page().flush({ items: [], page: 1, pageSize: 10, totalCount: 0 });
+    await f.whenStable();
+    el(f).querySelector<HTMLButtonElement>('[data-testid="new-kb"]')!.click();
+    const ref = TestBed.inject(MatDialog).openDialogs.at(-1)!;
+    expect(ref.componentInstance).toBeInstanceOf(KbCreateDialog);
+    const cfg = (ref as unknown as { _containerInstance: { _config: MatDialogConfig } })
+      ._containerInstance._config;
+    expect(cfg.closeOnNavigation).toBe(false);
+    ref.close();
+    document.querySelectorAll('.cdk-overlay-container').forEach((e) => e.remove());
   });
 
   it('KbName_WithScriptTag_RendersAsText', async () => {

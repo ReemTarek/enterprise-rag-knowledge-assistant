@@ -7,13 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -22,6 +16,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { asApiError, correlationIdFor, messageKeyFor } from '../../../core/api/error-message';
 import { ErrorBanner } from '../../../shared/error-banner/error-banner';
+import { notBlank } from '../../../shared/validators/not-blank';
 import { UsersApi } from '../users.api';
 import {
   CreatedUserResult,
@@ -30,11 +25,6 @@ import {
   GLOBAL_ROLES,
   GlobalRole,
 } from '../users.models';
-
-/** Whitespace-only values are invalid (the value is trimmed before it is sent). */
-function notBlank(control: AbstractControl<string>): ValidationErrors | null {
-  return control.value.trim().length === 0 ? { required: true } : null;
-}
 
 /** Creates a user; closes with the API result (the opener shows the temporary password). */
 @Component({

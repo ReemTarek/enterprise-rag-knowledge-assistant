@@ -109,6 +109,8 @@ export class Users {
       .open<CreateUserDialog, undefined, CreatedUserResult>(CreateUserDialog, {
         width: '520px',
         maxWidth: '95vw',
+        // A Back press must not drop a pending create (its result carries the one-time password).
+        closeOnNavigation: false,
       })
       .afterClosed()
       .pipe(filter((created): created is CreatedUserResult => !!created))

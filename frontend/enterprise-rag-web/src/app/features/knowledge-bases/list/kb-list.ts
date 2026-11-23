@@ -92,6 +92,8 @@ export class KbList {
       .open<KbCreateDialog, undefined, KnowledgeBase>(KbCreateDialog, {
         width: '520px',
         maxWidth: '95vw',
+        // A Back press must not drop a pending create (the opener navigates to the created KB).
+        closeOnNavigation: false,
       })
       .afterClosed()
       .subscribe((kb) => {

@@ -24,6 +24,7 @@ import { LanguageService } from '../../../core/i18n/language.service';
 import { ConfirmDialog, ConfirmDialogData } from '../../../shared/confirm-dialog/confirm-dialog';
 import { ErrorBanner } from '../../../shared/error-banner/error-banner';
 import { NotFound } from '../../../shared/not-found/not-found';
+import { notBlank } from '../../../shared/validators/not-blank';
 import { KbApi } from '../kb.api';
 import { DESCRIPTION_MAX_LENGTH, KnowledgeBase, NAME_MAX_LENGTH } from '../kb.models';
 import { KbMembers } from '../members/kb-members';
@@ -75,7 +76,7 @@ export class KbDetail {
   protected readonly canOwn = computed(() => this.kb()?.myRole === 'Owner' && !this.denied());
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(NAME_MAX_LENGTH)]],
+    name: ['', [notBlank, Validators.maxLength(NAME_MAX_LENGTH)]],
     description: ['', [Validators.maxLength(DESCRIPTION_MAX_LENGTH)]],
   });
 

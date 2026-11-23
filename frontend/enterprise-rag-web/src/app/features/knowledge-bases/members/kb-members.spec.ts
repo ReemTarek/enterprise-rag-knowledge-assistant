@@ -220,6 +220,105 @@ describe('KbMembers', () => {
     ctrl.expectNone(`${MEMBERS_URL}/${EDITOR.userId}`);
   });
 
+  const errorText = (f: ComponentFixture<KbMembers>) =>
+    el(f).querySelector('[data-testid="members-error"]')?.textContent ?? '';
+
+  it('Members_ChangeRole_403_ShowsForbidden_AndAsksHostToReread', async () => {
+    const f = await setup(true);
+    const changed = vi.fn();
+    f.componentInstance.membershipChanged.subscribe(changed);
+    await pickRole(f, 1, 'Viewer');
+    ctrl
+      .expectOne(`${MEMBERS_URL}/${EDITOR.userId}`)
+      .flush(problemBody(403, PROBLEM_TYPES.forbidden), { status: 403, statusText: 'Forbidden' });
+    await f.whenStable();
+    expect(errorText(f)).toContain('You do not have permission to do this.');
+    // The host re-reads the KB; its new myRole decides whether the controls stay.
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('Members_Remove_403_ShowsForbidden_AndAsksHostToReread', async () => {
+    const f = await setup(true);
+    confirmWith(true);
+    const changed = vi.fn();
+    f.componentInstance.membershipChanged.subscribe(changed);
+    el(f).querySelectorAll<HTMLButtonElement>('[data-testid="remove-member"]')[1].click();
+    await f.whenStable();
+    ctrl
+      .expectOne(`${MEMBERS_URL}/${EDITOR.userId}`)
+      .flush(problemBody(403, PROBLEM_TYPES.forbidden), { status: 403, statusText: 'Forbidden' });
+    await f.whenStable();
+    expect(errorText(f)).toContain('You do not have permission to do this.');
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('Members_ChangeRole_404_GenericNotFound_ReloadsAndAsksHostToReread', async () => {
+    const f = await setup(true);
+    const changed = vi.fn();
+    f.componentInstance.membershipChanged.subscribe(changed);
+    await pickRole(f, 1, 'Viewer');
+    ctrl
+      .expectOne(`${MEMBERS_URL}/${EDITOR.userId}`)
+      .flush(problemBody(404, PROBLEM_TYPES.notFound), { status: 404, statusText: 'Not Found' });
+    await f.whenStable();
+    // A 404 here may be the KB itself (deleted / access lost): no "not a member" claim.
+    expect(errorText(f)).toContain('The requested item was not found.');
+    expect(errorText(f)).not.toContain('no longer a member');
+    expect(changed).toHaveBeenCalledTimes(1);
+    ctrl.expectOne(MEMBERS_URL).flush([OWNER]);
+    await f.whenStable();
+    expect(el(f).querySelectorAll('[data-testid="member-row"]').length).toBe(1);
+  });
+
+  it('Members_Remove_404_GenericNotFound_ReloadsAndAsksHostToReread', async () => {
+    const f = await setup(true);
+    confirmWith(true);
+    const changed = vi.fn();
+    f.componentInstance.membershipChanged.subscribe(changed);
+    el(f).querySelectorAll<HTMLButtonElement>('[data-testid="remove-member"]')[1].click();
+    await f.whenStable();
+    ctrl
+      .expectOne(`${MEMBERS_URL}/${EDITOR.userId}`)
+      .flush(problemBody(404, PROBLEM_TYPES.notFound), { status: 404, statusText: 'Not Found' });
+    await f.whenStable();
+    expect(errorText(f)).toContain('The requested item was not found.');
+    expect(errorText(f)).not.toContain('no longer a member');
+    expect(changed).toHaveBeenCalledTimes(1);
+    ctrl.expectOne(MEMBERS_URL).flush([OWNER]);
+  });
+
+  it('Members_Add_404_UserNotFound_AndAsksHostToReread', async () => {
+    const f = await setup(true);
+    const changed = vi.fn();
+    f.componentInstance.membershipChanged.subscribe(changed);
+    picker(f).componentInstance.selected.emit({ id: 'u-new', displayName: 'L', email: 'l@x.io' });
+    await f.whenStable();
+    el(f).querySelector<HTMLButtonElement>('[data-testid="add-member"]')!.click();
+    await f.whenStable();
+    ctrl
+      .expectOne(MEMBERS_URL)
+      .flush(problemBody(404, PROBLEM_TYPES.notFound), { status: 404, statusText: 'Not Found' });
+    await f.whenStable();
+    expect(errorText(f)).toContain('could not be found');
+    // If the 404 was the KB itself, the host's re-read turns the page into Not Found.
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('Members_ListLoadFailure_DoesNotNotifyHost', async () => {
+    const f = await setup(true);
+    const changed = vi.fn();
+    f.componentInstance.membershipChanged.subscribe(changed);
+    await pickRole(f, 1, 'Viewer');
+    ctrl.expectOne(`${MEMBERS_URL}/${EDITOR.userId}`).flush({ ...EDITOR, role: 'Viewer' });
+    await f.whenStable();
+    ctrl
+      .expectOne(MEMBERS_URL)
+      .flush(problemBody(404, PROBLEM_TYPES.notFound), { status: 404, statusText: 'Not Found' });
+    await f.whenStable();
+    // Only the successful mutation notified the host; the failed list reload did not add a second re-read.
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
   it('Members_Remove_LastOwner409_ShowsTranslatedMessage', async () => {
     const f = await setup(true);
     confirmWith(true);

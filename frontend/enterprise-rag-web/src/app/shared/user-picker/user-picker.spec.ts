@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { provideI18nTesting } from '../../core/i18n/i18n.testing';
 import { DirectoryUser } from './directory-user';
 import { UserPicker } from './user-picker';
@@ -45,6 +45,42 @@ describe('UserPicker', () => {
     expect(picked.at(-1)).toEqual(ADA);
     type('adx'); // editing clears the selection
     expect(picked.at(-1)).toBeNull();
+  });
+
+  const status = () =>
+    (f.nativeElement as HTMLElement).querySelector('[role="status"]')!.textContent ?? '';
+  const options = () => Array.from(document.querySelectorAll('mat-option'));
+
+  it('UserPicker_ShortQuery_CancelsInFlightSearch_StaleResponseIgnored', async () => {
+    await setup();
+    const response = new Subject<DirectoryUser[]>();
+    search.mockImplementation(() => response);
+    input().focus();
+    type('ada');
+    await vi.waitFor(() => expect(search).toHaveBeenCalledWith('ada'));
+    expect(response.observed).toBe(true);
+
+    type('a'); // below the minimum: the in-flight request is dropped at once
+    expect(response.observed).toBe(false);
+    response.next([ADA, GRACE]); // a late answer for 'ada' cannot repopulate the list
+    await f.whenStable();
+    expect(options()).toHaveLength(0);
+    expect(status()).not.toContain('No matching users.');
+  });
+
+  it('UserPicker_SearchError_ShowsTranslatedMessage_ThenRecovers', async () => {
+    await setup();
+    search.mockImplementation(() => throwError(() => new Error('boom')));
+    input().focus();
+    type('ada');
+    await vi.waitFor(() => expect(status()).toContain('User search failed. Try again.'));
+    expect(status()).not.toContain('boom');
+
+    search.mockImplementation(() => of([GRACE]));
+    type('gra');
+    await vi.waitFor(() => expect(search).toHaveBeenCalledWith('gra'));
+    await f.whenStable();
+    expect(status()).not.toContain('User search failed');
   });
 
   it('UserPicker_ExcludesGivenIds', async () => {

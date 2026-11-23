@@ -86,6 +86,13 @@ describe('KbDetail', () => {
     req.flush(makeKb({ name: 'Renamed again' }), { headers: { ETag: '"v3"' } });
   });
 
+  it('KbDetail_Update_WhitespaceName_Invalid', async () => {
+    await load('Owner');
+    await editName('   ');
+    ctrl.expectNone(URL_);
+    expect(el().textContent).toContain('Enter a name.');
+  });
+
   it('KbDetail_Update_412_ShowsReloadFlow', async () => {
     await load('Owner', {}, '"v1"');
     await editName('Mine');
@@ -228,6 +235,66 @@ describe('KbDetail', () => {
     expect(q('kb-description')!.textContent).toContain(evil);
     expect(el().querySelector('script')).toBeNull();
     expect(el().querySelector('img')).toBeNull();
+  });
+
+  async function openMembersTab() {
+    el().querySelectorAll<HTMLElement>('[role="tab"]')[1].click();
+    await stable();
+    ctrl
+      .expectOne(`${URL_}/members`)
+      .flush([
+        makeMember({ userId: 'u-owner', displayName: 'Ada', role: 'Owner' }),
+        makeMember({ userId: 'u-2', displayName: 'Grace', role: 'Editor' }),
+      ]);
+    await stable();
+  }
+  const rejectRoleChange = async (status: number, type: string) => {
+    el()
+      .querySelectorAll<HTMLElement>('[data-testid="role-select"] .mat-mdc-select-trigger')[1]
+      .click();
+    await stable();
+    Array.from(document.querySelectorAll<HTMLElement>('mat-option'))
+      .find((o) => o.textContent?.includes('Viewer'))!
+      .click();
+    await stable();
+    ctrl
+      .expectOne(`${URL_}/members/u-2`)
+      .flush(problemBody(status, type), { status, statusText: 'x' });
+    await stable();
+  };
+
+  it('Members_DemotedWhileViewing_ShowsForbidden_AndControlsDisappear', async () => {
+    await load('Owner');
+    await openMembersTab();
+    expect(el().querySelectorAll('[data-testid="remove-member"]').length).toBe(2);
+
+    // Someone demoted us to Editor meanwhile: the PUT is refused.
+    await rejectRoleChange(403, PROBLEM_TYPES.forbidden);
+    expect(el().querySelector('[data-testid="members-error"]')!.textContent).toContain(
+      'You do not have permission to do this.',
+    );
+    // The detail page re-reads the KB and adopts the new role.
+    ctrl.expectOne(URL_).flush(makeKb({ myRole: 'Editor' }), { headers: { ETag: '"v2"' } });
+    await stable();
+
+    expect(el().querySelector('[data-testid="remove-member"]')).toBeNull();
+    expect(el().querySelector('[data-testid="role-select"]')).toBeNull();
+    expect(el().querySelector('[data-testid="add-member"]')).toBeNull();
+    expect(q('edit')).toBeNull();
+    expect(el().textContent).toContain('Your role: Editor');
+    expect(el().textContent).toContain('Only owners can change members.');
+  });
+
+  it('Members_KbGoneWhileViewing_404_ShowsNotFoundPage', async () => {
+    await load('Owner');
+    await openMembersTab();
+    await rejectRoleChange(404, PROBLEM_TYPES.notFound);
+    // Member list reload and KB re-read both 404: the KB is gone.
+    for (const r of ctrl.match((req) => req.url.startsWith(URL_))) {
+      r.flush(problemBody(404, PROBLEM_TYPES.notFound), { status: 404, statusText: 'x' });
+    }
+    await stable();
+    expect(el().textContent).toContain('Page not found');
   });
 
   it('Members_ChangeRole_And_Remove_RefreshEtag', async () => {

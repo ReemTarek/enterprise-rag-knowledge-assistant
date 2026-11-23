@@ -15,6 +15,7 @@ import { MatInputModule } from '@angular/material/input';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { asApiError, correlationIdFor, messageKeyFor } from '../../../core/api/error-message';
 import { ErrorBanner } from '../../../shared/error-banner/error-banner';
+import { notBlank } from '../../../shared/validators/not-blank';
 import { KbApi } from '../kb.api';
 import { DESCRIPTION_MAX_LENGTH, KnowledgeBase, NAME_MAX_LENGTH } from '../kb.models';
 
@@ -69,8 +70,16 @@ import { DESCRIPTION_MAX_LENGTH, KnowledgeBase, NAME_MAX_LENGTH } from '../kb.mo
         }
       </mat-dialog-content>
       <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button type="submit" [disabled]="pending()">
+        <button
+          mat-button
+          type="button"
+          data-testid="cancel"
+          [disabled]="pending()"
+          (click)="ref.close()"
+        >
+          {{ 'common.cancel' | transloco }}
+        </button>
+        <button mat-flat-button type="submit" data-testid="submit" [disabled]="pending()">
           {{ 'kb.create.submit' | transloco }}
         </button>
       </mat-dialog-actions>
@@ -79,12 +88,12 @@ import { DESCRIPTION_MAX_LENGTH, KnowledgeBase, NAME_MAX_LENGTH } from '../kb.mo
 })
 export class KbCreateDialog {
   private readonly api = inject(KbApi);
-  private readonly ref = inject<MatDialogRef<KbCreateDialog, KnowledgeBase>>(MatDialogRef);
+  protected readonly ref = inject<MatDialogRef<KbCreateDialog, KnowledgeBase>>(MatDialogRef);
   private readonly injector = inject(Injector);
   private readonly banner = viewChild(ErrorBanner);
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(NAME_MAX_LENGTH)]],
+    name: ['', [notBlank, Validators.maxLength(NAME_MAX_LENGTH)]],
     description: ['', [Validators.maxLength(DESCRIPTION_MAX_LENGTH)]],
   });
   protected readonly pending = signal(false);
@@ -97,17 +106,26 @@ export class KbCreateDialog {
       this.form.markAllAsTouched();
       return;
     }
-    this.pending.set(true);
+    this.setPending(true);
     this.errorKey.set(null);
     const { name, description } = this.form.getRawValue();
     this.api.create({ name: name.trim(), description: description.trim() || null }).subscribe({
-      next: ({ kb }) => this.ref.close(kb),
+      next: ({ kb }) => {
+        this.setPending(false);
+        this.ref.close(kb);
+      },
       error: (e: unknown) => this.onError(e),
     });
   }
 
+  /** Escape / backdrop dismissal is blocked while the request is in flight (`disableClose` follows `pending`). */
+  private setPending(value: boolean): void {
+    this.pending.set(value);
+    this.ref.disableClose = value;
+  }
+
   private onError(e: unknown): void {
-    this.pending.set(false);
+    this.setPending(false);
     const api = asApiError(e);
     this.correlationId.set(api ? correlationIdFor(api) : undefined);
     // Server field messages are never shown (they are untranslated); only the fact that a field was rejected.

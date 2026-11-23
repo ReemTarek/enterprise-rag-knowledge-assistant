@@ -202,8 +202,7 @@
       "removed": "Mitglied entfernt.",
       "lastOwner": "Eine Wissensdatenbank muss mindestens einen Besitzer behalten.",
       "alreadyMember": "Dieser Benutzer ist bereits Mitglied.",
-      "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
-      "notAMember": "Dieser Benutzer ist kein Mitglied mehr."
+      "userNotFound": "Dieser Benutzer wurde nicht gefunden."
     }
   },
   "admin": {
@@ -265,6 +264,7 @@
   "userPicker": {
     "label": "Benutzer suchen",
     "hint": "Geben Sie mindestens 2 Zeichen eines Namens oder einer E-Mail-Adresse ein.",
-    "none": "Keine passenden Benutzer."
+    "none": "Keine passenden Benutzer.",
+    "error": "Die Benutzersuche ist fehlgeschlagen. Versuchen Sie es erneut."
   }
 }

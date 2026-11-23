@@ -220,6 +220,16 @@ describe('Users page', () => {
     return ctrl.expectOne((r) => r.url === '/api/admin/users' && r.method === 'POST');
   }
 
+  it('CreateUser_DialogSurvivesNavigation', async () => {
+    const f = await loaded([]);
+    el(f).querySelector<HTMLButtonElement>(tid('new-user'))!.click();
+    const ref = TestBed.inject(MatDialog).openDialogs.at(-1)!;
+    const cfg = (ref as unknown as { _containerInstance: { _config: MatDialogConfig } })
+      ._containerInstance._config;
+    expect(cfg.closeOnNavigation).toBe(false);
+    ref.close();
+  });
+
   it('CreateUser_ShowsTemporaryPasswordOnce_AndClearsItOnClose', async () => {
     const f = await loaded([]);
     const post = await createUser(f);

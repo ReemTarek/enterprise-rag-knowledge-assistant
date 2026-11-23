@@ -1,4 +1,5 @@
-import { Injectable, inject } from '@angular/core';
+import { DestroyRef, Injectable, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { TranslocoService } from '@jsverse/transloco';
 import { filter, merge } from 'rxjs';
@@ -11,10 +12,14 @@ export class TranslatedPaginatorIntl extends MatPaginatorIntl {
   constructor() {
     super();
     this.update();
+    // Provided per component: the injector's DestroyRef is the host's, so the subscription to the root
+    // TranslocoService ends with the page instead of leaking one listener per visit.
     merge(
       this.transloco.langChanges$,
       this.transloco.events$.pipe(filter((e) => e.type === 'translationLoadSuccess')),
-    ).subscribe(() => this.update());
+    )
+      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+      .subscribe(() => this.update());
   }
 
   private update(): void {

@@ -8,8 +8,11 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { EMPTY, Observable, catchError, debounceTime, filter, map, switchMap, tap } from 'rxjs';
+import { Observable, catchError, filter, map, of, switchMap, tap, timer } from 'rxjs';
 import { DirectoryUser } from './directory-user';
+
+type SearchOutcome =
+  { kind: 'idle' } | { kind: 'results'; users: DirectoryUser[] } | { kind: 'error' };
 
 export const USER_SEARCH_DEBOUNCE_MS = 300;
 export const USER_SEARCH_MIN_CHARS = 2;
@@ -55,7 +58,9 @@ export const USER_SEARCH_MAX_CHARS = 100;
       }
     </mat-autocomplete>
     <p class="status" role="status" aria-live="polite">
-      @if (searched() && visible().length === 0) {
+      @if (error()) {
+        {{ 'userPicker.error' | transloco }}
+      } @else if (searched() && visible().length === 0) {
         {{ 'userPicker.none' | transloco }}
       }
     </p>
@@ -87,6 +92,8 @@ export class UserPicker {
   protected readonly text = new FormControl<string | DirectoryUser>('', { nonNullable: true });
   private readonly results = signal<DirectoryUser[]>([]);
   protected readonly searched = signal(false);
+  /** The last search failed (network, 5xx, 429...): a translated message replaces the result hint. */
+  protected readonly error = signal(false);
   protected readonly visible = computed(() => {
     const hidden = new Set(this.excludeIds());
     return this.results().filter((u) => !hidden.has(u.id));
@@ -102,28 +109,25 @@ export class UserPicker {
         }),
         filter((v): v is string => typeof v === 'string'),
         map((v) => v.trim()),
-        tap((q) => {
-          if (q.length < USER_SEARCH_MIN_CHARS) {
-            this.results.set([]);
-            this.searched.set(false);
+        tap(() => this.error.set(false)),
+        // switchMap first: every keystroke cancels the previous debounce window AND any request still in flight, so a
+        // late answer for an older query can never repopulate the list (also not after the text got too short).
+        switchMap((q): Observable<SearchOutcome> => {
+          if (q.length < USER_SEARCH_MIN_CHARS || q.length > USER_SEARCH_MAX_CHARS) {
+            return of({ kind: 'idle' });
           }
+          return timer(USER_SEARCH_DEBOUNCE_MS).pipe(
+            switchMap(() => this.search()(q)),
+            map((users): SearchOutcome => ({ kind: 'results', users })),
+            catchError(() => of<SearchOutcome>({ kind: 'error' })),
+          );
         }),
-        debounceTime(USER_SEARCH_DEBOUNCE_MS),
-        filter((q) => q.length >= USER_SEARCH_MIN_CHARS && q.length <= USER_SEARCH_MAX_CHARS),
-        switchMap((q) =>
-          this.search()(q).pipe(
-            catchError(() => {
-              this.results.set([]);
-              this.searched.set(false);
-              return EMPTY;
-            }),
-          ),
-        ),
         takeUntilDestroyed(),
       )
-      .subscribe((users) => {
-        this.results.set(users);
-        this.searched.set(true);
+      .subscribe((outcome) => {
+        this.results.set(outcome.kind === 'results' ? outcome.users : []);
+        this.searched.set(outcome.kind === 'results');
+        this.error.set(outcome.kind === 'error');
       });
   }
 
@@ -136,5 +140,6 @@ export class UserPicker {
     this.text.setValue('');
     this.results.set([]);
     this.searched.set(false);
+    this.error.set(false);
   }
 }

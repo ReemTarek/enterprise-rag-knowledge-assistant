@@ -202,8 +202,7 @@
       "removed": "Member removed.",
       "lastOwner": "A knowledge base must keep at least one owner.",
       "alreadyMember": "This user is already a member.",
-      "userNotFound": "This user could not be found.",
-      "notAMember": "This user is no longer a member."
+      "userNotFound": "This user could not be found."
     }
   },
   "admin": {
@@ -265,6 +264,7 @@
   "userPicker": {
     "label": "Find a user",
     "hint": "Type at least 2 characters of a name or email.",
-    "none": "No matching users."
+    "none": "No matching users.",
+    "error": "User search failed. Try again."
   }
 }
