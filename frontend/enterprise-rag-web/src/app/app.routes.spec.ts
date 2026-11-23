@@ -1,11 +1,12 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, TitleStrategy, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { AuthService } from './core/auth/auth.service';
 import { AuthStore } from './core/auth/auth.store';
 import { currentUser, tokenResponse } from './core/auth/auth.testing';
 import { provideI18nTesting } from './core/i18n/i18n.testing';
@@ -115,6 +116,25 @@ describe('Must-change on the real router', () => {
     await h.navigateByUrl('/admin');
     expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
   });
+
+  it.each(['/', '/knowledge-bases'])(
+    'MustChange_AfterRestoreSession_LandsOnChangePassword (%s)',
+    async (url) => {
+      configure({ auth: false });
+      const ctrl = TestBed.inject(HttpTestingController);
+      let restored: boolean | undefined;
+      TestBed.inject(AuthService)
+        .restoreSession()
+        .subscribe((r) => (restored = r));
+      ctrl.expectOne('/api/auth/refresh').flush(tokenResponse('tok', true));
+      ctrl.expectOne('/api/me').flush(currentUser({ mustChangePassword: true }));
+      expect(restored).toBe(true);
+
+      await RouterTestingHarness.create(url);
+      expect(TestBed.inject(Router).url.split('?')[0]).toBe('/change-password');
+      ctrl.verify();
+    },
+  );
 
   it('MustChange_Cleared_RoutesWorkAgain', async () => {
     configureMustChange(false);

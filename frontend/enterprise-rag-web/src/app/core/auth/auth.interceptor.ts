@@ -20,6 +20,9 @@ export const RETRIED = new HttpContextToken<boolean>(() => false);
 /** Anonymous endpoints: never carry the bearer token, and their 401s never trigger a refresh. */
 const NO_BEARER = new Set(['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']);
 
+/** Refresh answers that mean "the cookie is invalid": only these end the session. */
+const SESSION_ENDING_REFRESH_STATUSES = new Set([400, 401, 403]);
+
 const isApiUrl = (url: string) => url.startsWith('/api/');
 const pathOf = (url: string) => url.split(/[?#]/, 1)[0];
 
@@ -41,7 +44,9 @@ function withBearer(
 /**
  * Same-origin `/api/*` only (absolute URLs and assets are untouched): adds the in-memory bearer token, refreshes once
  * on 401 (single-flight via AuthService.refresh) and retries once, sends the user to /login when the session cannot
- * be recovered and to /change-password on the password-change-required 403, and maps every error to ApiError.
+ * be recovered (refresh rejected with 400/401/403, or the retry is still 401; a network/429/5xx refresh failure keeps
+ * the session and surfaces the refresh's error) and to /change-password on the password-change-required 403, and
+ * maps every error to ApiError.
  * Never logs or stores token material.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
@@ -96,6 +101,7 @@ function recoverFrom401(
 ): Observable<HttpEvent<unknown>> {
   const store = injector.get(AuthStore);
   const current = store.getAccessToken();
+  const generation = store.generation;
 
   // Signed out meanwhile: nothing to recover.
   if (current === null) return throwError(() => original);
@@ -105,9 +111,19 @@ function recoverFrom401(
     current !== sentToken ? of(current) : injector.get(AuthService).refresh();
 
   return fresh$.pipe(
-    catchError(() => {
-      endSession(injector);
-      return throwError(() => original);
+    catchError((refreshError: unknown) => {
+      // Signed out while the refresh ran (logout): the session is already gone, no redirect of our own.
+      if (store.generation !== generation) return throwError(() => original);
+      // Only a rejected cookie ends the session. Network failures, 429 and 5xx are transient: keep the session (the
+      // next 401 refreshes again) and fail this request with the refresh's own error so its message is accurate.
+      if (
+        refreshError instanceof ApiError &&
+        SESSION_ENDING_REFRESH_STATUSES.has(refreshError.status)
+      ) {
+        endSession(injector);
+        return throwError(() => original);
+      }
+      return throwError(() => refreshError);
     }),
     switchMap((newToken) => {
       const retry = withBearer(req, newToken, true);

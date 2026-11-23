@@ -13,12 +13,21 @@ export class AuthStore {
   readonly #expiresAtUtc = signal<string | null>(null);
   readonly #user = signal<CurrentUser | null>(null);
   readonly #mustChangePassword = signal(false);
+  #generation = 0;
 
   readonly user: Signal<CurrentUser | null> = this.#user.asReadonly();
   readonly mustChangePassword: Signal<boolean> = this.#mustChangePassword.asReadonly();
   readonly expiresAtUtc: Signal<string | null> = this.#expiresAtUtc.asReadonly();
   readonly isAuthenticated: Signal<boolean> = computed(() => this.#accessToken() !== null);
   readonly isAdmin: Signal<boolean> = computed(() => this.#user()?.globalRole === 'Admin');
+
+  /**
+   * Bumped by every clear() (logout, failed restore, ended session). A token request that started in an older
+   * generation must not sign the client back in: AuthService drops its result.
+   */
+  get generation(): number {
+    return this.#generation;
+  }
 
   getAccessToken(): string | null {
     return this.#accessToken();
@@ -42,6 +51,7 @@ export class AuthStore {
   }
 
   clear(): void {
+    this.#generation++;
     this.#accessToken.set(null);
     this.#expiresAtUtc.set(null);
     this.#user.set(null);

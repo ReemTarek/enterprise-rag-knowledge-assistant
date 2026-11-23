@@ -43,7 +43,9 @@ export class Shell {
   );
   protected readonly showNav = computed(() => !this.store.mustChangePassword());
 
+  /** The local session is cleared synchronously; the server-side revoke runs in the background (best effort). */
   protected logout(): void {
-    this.auth.logout().subscribe(() => void this.router.navigateByUrl('/login'));
+    this.auth.logout().subscribe();
+    void this.router.navigateByUrl('/login');
   }
 }

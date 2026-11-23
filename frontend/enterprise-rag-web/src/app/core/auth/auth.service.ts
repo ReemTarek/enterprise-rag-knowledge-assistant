@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import {
   Observable,
   catchError,
+  defer,
   finalize,
   map,
   of,
@@ -12,6 +13,8 @@ import {
   timeout,
 } from 'rxjs';
 import { ApiClientService } from '../api/api-client.service';
+import { ApiError } from '../api/api-error';
+import { PROBLEM_TYPES } from '../api/problem-details';
 import { ChangePasswordRequest, CurrentUser, LoginRequest, TokenResponse } from './auth.models';
 import { AuthStore } from './auth.store';
 
@@ -25,6 +28,14 @@ export const AUTH_URLS = {
 
 /** App start must not hang on a slow or dead API: restoreSession gives up after this. */
 export const RESTORE_SESSION_TIMEOUT_MS = 5000;
+
+/** Sign-out never waits on the server longer than this; the local session is already gone by then. */
+export const LOGOUT_TIMEOUT_MS = 5000;
+
+/** The error a token request fails with when the session ended (logout) while it was in flight. */
+function sessionEnded(): ApiError {
+  return new ApiError({ type: PROBLEM_TYPES.unauthorized, title: 'Session ended', status: 401 });
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -52,10 +63,16 @@ export class AuthService {
    * The refresh cookie rotates on every call, so issuing two at once would trip the server's reuse detection.
    */
   refresh(): Observable<string> {
-    this.refreshInFlight ??= this.requestToken().pipe(
-      finalize(() => (this.refreshInFlight = null)),
-      shareReplay({ bufferSize: 1, refCount: false }),
-    );
+    if (!this.refreshInFlight) {
+      const flight: Observable<string> = this.requestToken().pipe(
+        // Only reset if still current: logout() may already have detached this flight and a new one started.
+        finalize(() => {
+          if (this.refreshInFlight === flight) this.refreshInFlight = null;
+        }),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+      this.refreshInFlight = flight;
+    }
     return this.refreshInFlight;
   }
 
@@ -76,12 +93,18 @@ export class AuthService {
     );
   }
 
-  /** Revokes the refresh family server-side, then always clears the local session. Never errors; caller navigates. */
+  /**
+   * Signs out locally at once (synchronously, before the server answers, even if nobody subscribes), then asks the
+   * server to revoke the refresh family: best effort, at most LOGOUT_TIMEOUT_MS, never errors. Clearing the store
+   * starts a new session generation, so a refresh still in flight cannot sign the client back in. Caller navigates.
+   */
   logout(): Observable<void> {
+    this.store.clear();
+    this.refreshInFlight = null;
     return this.api.post<unknown>(AUTH_URLS.logout, null).pipe(
+      timeout({ first: LOGOUT_TIMEOUT_MS }),
       catchError(() => of(null)),
-      map(() => this.store.clear()),
-      finalize(() => this.store.clear()),
+      map(() => undefined),
     );
   }
 
@@ -97,10 +120,20 @@ export class AuthService {
     return this.api.get<CurrentUser>(AUTH_URLS.me).pipe(tap((user) => this.store.setUser(user)));
   }
 
+  /**
+   * POST /api/auth/refresh. The session generation is captured when the request starts; if the store was cleared
+   * meanwhile (logout), the new token is dropped and the caller gets an auth error instead of being signed back in.
+   */
   private requestToken(): Observable<string> {
-    return this.api.post<TokenResponse>(AUTH_URLS.refresh, null).pipe(
-      tap((session) => this.store.setSession(session)),
-      map((session) => session.accessToken),
-    );
+    return defer(() => {
+      const generation = this.store.generation;
+      return this.api.post<TokenResponse>(AUTH_URLS.refresh, null).pipe(
+        map((session) => {
+          if (this.store.generation !== generation) throw sessionEnded();
+          this.store.setSession(session);
+          return session.accessToken;
+        }),
+      );
+    });
   }
 }

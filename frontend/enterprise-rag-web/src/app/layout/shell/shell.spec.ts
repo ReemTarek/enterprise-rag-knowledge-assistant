@@ -79,4 +79,19 @@ describe('Shell', () => {
     expect(store.isAuthenticated()).toBe(false);
     expect(TestBed.inject(Router).url).toContain('/login');
   });
+
+  it('Shell_Logout_RoutesToLogin_WithoutWaitingForServer', async () => {
+    const store = configure();
+    const h = await RouterTestingHarness.create('/knowledge-bases');
+    shellOf(h).querySelector<HTMLButtonElement>('[data-testid=user-menu]')!.click();
+    h.fixture.detectChanges();
+    await h.fixture.whenStable();
+    const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    overlay.querySelector<HTMLButtonElement>('[data-testid=logout]')!.click();
+    const ctrl = TestBed.inject(HttpTestingController);
+    const pending = ctrl.expectOne('/api/auth/logout'); // never answered here
+    await vi.waitFor(() => expect(TestBed.inject(Router).url).toContain('/login'));
+    expect(store.isAuthenticated()).toBe(false);
+    expect(pending.cancelled).toBe(false);
+  });
 });

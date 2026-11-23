@@ -1,5 +1,6 @@
 import { ApiError } from '../api/api-error';
 import { PROBLEM_TYPES } from '../api/problem-details';
+import { LOGOUT_TIMEOUT_MS } from './auth.service';
 import { AuthTestBed, currentUser, problem, setupAuthTesting, tokenResponse } from './auth.testing';
 
 const TOKEN = 'login-access-jwt.111.222';
@@ -209,6 +210,79 @@ describe('AuthService', () => {
     expect(done).toBe(true);
     expect(t.store.isAuthenticated()).toBe(false);
     expect(t.store.user()).toBeNull();
+  });
+
+  it('Logout_ClearsSynchronously_EvenIfServerNeverResponds', () => {
+    completeLogin();
+    vi.useFakeTimers();
+    let done = false;
+    let error: unknown;
+    t.auth.logout().subscribe({ complete: () => (done = true), error: (e) => (error = e) });
+
+    // Signed out locally before the server has answered.
+    expect(t.store.isAuthenticated()).toBe(false);
+    expect(t.store.getAccessToken()).toBeNull();
+    expect(t.store.user()).toBeNull();
+    const req = t.ctrl.expectOne('/api/auth/logout');
+
+    vi.advanceTimersByTime(LOGOUT_TIMEOUT_MS - 1);
+    expect(done).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(done).toBe(true);
+    expect(error).toBeUndefined();
+    expect(req.cancelled).toBe(true);
+  });
+
+  it('Logout_ClearsStore_EvenWithoutSubscriber', () => {
+    completeLogin();
+    t.auth.logout();
+    expect(t.store.isAuthenticated()).toBe(false);
+  });
+
+  it('Refresh_ResolvingAfterLogout_DoesNotResignIn', () => {
+    completeLogin();
+    let error: unknown;
+    let token: string | undefined;
+    t.auth.refresh().subscribe({ next: (v) => (token = v), error: (e) => (error = e) });
+    const refresh = t.ctrl.expectOne('/api/auth/refresh');
+
+    t.auth.logout().subscribe();
+    t.ctrl.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    refresh.flush(tokenResponse(ROTATED));
+
+    expect(token).toBeUndefined();
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(401);
+    expect(t.store.isAuthenticated()).toBe(false);
+    expect(t.store.getAccessToken()).toBeNull();
+
+    // A refresh started after logout is a new flight, not the dropped one.
+    t.auth.refresh().subscribe();
+    t.ctrl.expectOne('/api/auth/refresh').flush(tokenResponse('again'));
+    expect(t.store.getAccessToken()).toBe('again');
+  });
+
+  it('RestoreSession_ResolvingAfterLogout_DoesNotResignIn', () => {
+    let result: boolean | undefined;
+    t.auth.restoreSession().subscribe((r) => (result = r));
+    const refresh = t.ctrl.expectOne('/api/auth/refresh');
+    t.auth.logout().subscribe();
+    t.ctrl.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    refresh.flush(tokenResponse(TOKEN));
+    expect(result).toBe(false);
+    expect(t.store.isAuthenticated()).toBe(false);
+  });
+
+  it('RestoreSession_MustChange_SetsFlag', () => {
+    let result: boolean | undefined;
+    t.auth.restoreSession().subscribe((r) => (result = r));
+    t.ctrl.expectOne('/api/auth/refresh').flush(tokenResponse(TOKEN, true));
+    // Set from the refresh response already, before /api/me answers.
+    expect(t.store.mustChangePassword()).toBe(true);
+    t.ctrl.expectOne('/api/me').flush(currentUser({ mustChangePassword: true }));
+    expect(result).toBe(true);
+    expect(t.store.mustChangePassword()).toBe(true);
+    expect(t.store.user()?.mustChangePassword).toBe(true);
   });
 
   it('Logout_Success_ClearsStore', () => {

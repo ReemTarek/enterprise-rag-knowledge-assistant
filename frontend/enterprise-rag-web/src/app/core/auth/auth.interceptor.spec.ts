@@ -107,17 +107,21 @@ describe('authInterceptor', () => {
     expect(late).toEqual({ ok: true });
   });
 
-  it('Interceptor_RefreshFails_LogsOutAndRedirectsToLogin_NoLoop', () => {
+  /** Two requests fail with 401 and queue behind one refresh (single-flight); returns that refresh. */
+  function twoRequestsThenRefresh() {
     signIn();
     const errors: unknown[] = [];
     t.http.get('/api/one').subscribe({ error: (e) => errors.push(e) });
     t.http.get('/api/two').subscribe({ error: (e) => errors.push(e) });
     t.ctrl.expectOne('/api/one').flush(problem(401, PROBLEM_TYPES.unauthorized), unauthorized);
     t.ctrl.expectOne('/api/two').flush(problem(401, PROBLEM_TYPES.unauthorized), unauthorized);
+    return { errors, refresh: t.ctrl.expectOne('/api/auth/refresh') };
+  }
+  type RefreshRequest = ReturnType<typeof twoRequestsThenRefresh>['refresh'];
 
-    t.ctrl
-      .expectOne('/api/auth/refresh')
-      .flush(problem(401, PROBLEM_TYPES.unauthorized), unauthorized);
+  it('Interceptor_RefreshFails401_LogsOutAndRedirectsToLogin_NoLoop', () => {
+    const { errors, refresh } = twoRequestsThenRefresh();
+    refresh.flush(problem(401, PROBLEM_TYPES.unauthorized), unauthorized);
 
     // verify() in afterEach: no second refresh, no retries.
     expect(errors).toHaveLength(2);
@@ -131,6 +135,83 @@ describe('authInterceptor', () => {
     expect(t.router.navigate).toHaveBeenCalledWith(['/login'], {
       queryParams: { returnUrl: '/knowledge-bases/42' },
     });
+  });
+
+  for (const status of [400, 403]) {
+    it(`Interceptor_RefreshFails${status}_LogsOut`, () => {
+      const { errors, refresh } = twoRequestsThenRefresh();
+      refresh.flush(problem(status, PROBLEM_TYPES.badRequest), { status, statusText: 'x' });
+      expect(errors).toHaveLength(2);
+      expect(t.store.isAuthenticated()).toBe(false);
+      expect(t.router.navigate).toHaveBeenCalledOnce();
+    });
+  }
+
+  const transientFailures: [string, (r: RefreshRequest) => void, number, string][] = [
+    ['Network', (r) => r.error(new ProgressEvent('error')), 0, 'network'],
+    [
+      '429',
+      (r) =>
+        r.flush(problem(429, PROBLEM_TYPES.tooManyRequests), {
+          status: 429,
+          statusText: 'Too Many Requests',
+        }),
+      429,
+      PROBLEM_TYPES.tooManyRequests,
+    ],
+    [
+      '503',
+      (r) => r.flush(null, { status: 503, statusText: 'Service Unavailable' }),
+      503,
+      'https://enterprise-rag.local/problems/http-503',
+    ],
+  ];
+  for (const [name, fail, status, type] of transientFailures) {
+    it(`Interceptor_RefreshFails${name}_KeepsSession_FailsWithRefreshError`, () => {
+      const { errors, refresh } = twoRequestsThenRefresh();
+      fail(refresh);
+
+      // Every queued request gets the same outcome: the refresh's own error, not the original 401.
+      expect(errors).toHaveLength(2);
+      for (const e of errors) {
+        expect(e).toBeInstanceOf(ApiError);
+        expect((e as ApiError).status).toBe(status);
+        expect((e as ApiError).type).toBe(type);
+      }
+      expect(t.store.isAuthenticated()).toBe(true);
+      expect(t.store.getAccessToken()).toBe(OLD);
+      expect(t.router.navigate).not.toHaveBeenCalled();
+
+      // The next 401 tries the refresh again (single-flight was reset) and recovers.
+      let ok: unknown;
+      t.http.get('/api/three').subscribe((r) => (ok = r));
+      t.ctrl.expectOne('/api/three').flush(problem(401, PROBLEM_TYPES.unauthorized), unauthorized);
+      t.ctrl.expectOne('/api/auth/refresh').flush(tokenResponse(NEW));
+      const retry = t.ctrl.expectOne('/api/three');
+      expect(retry.request.headers.get('Authorization')).toBe(`Bearer ${NEW}`);
+      retry.flush({ ok: true });
+      expect(ok).toEqual({ ok: true });
+    });
+  }
+
+  it('Interceptor_TokenArrivingAfterLogout_IsNotUsedForRetry', () => {
+    signIn();
+    let error: unknown;
+    t.http.get('/api/one').subscribe({ error: (e) => (error = e) });
+    t.ctrl.expectOne('/api/one').flush(problem(401, PROBLEM_TYPES.unauthorized), unauthorized);
+    const refresh = t.ctrl.expectOne('/api/auth/refresh');
+
+    t.auth.logout().subscribe();
+    t.ctrl.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    refresh.flush(tokenResponse(NEW));
+
+    // verify() in afterEach: the retry of /api/one was never sent.
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(401);
+    expect(t.store.isAuthenticated()).toBe(false);
+    expect(t.store.getAccessToken()).toBeNull();
+    // The shell navigates on logout; the interceptor adds no redirect of its own.
+    expect(t.router.navigate).not.toHaveBeenCalled();
   });
 
   it('Interceptor_RetryStill401_DoesNotRefreshAgain', () => {

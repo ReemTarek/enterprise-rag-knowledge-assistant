@@ -31,6 +31,14 @@ describe('AuthStore', () => {
     expect(store.isAdmin()).toBe(true);
   });
 
+  it('AuthStore_Clear_StartsNewSessionGeneration', () => {
+    const first = store.generation;
+    store.setSession(tokenResponse('jwt-1'));
+    expect(store.generation).toBe(first);
+    store.clear();
+    expect(store.generation).toBe(first + 1);
+  });
+
   it('AuthStore_SetMustChangePassword_UpdatesUserToo', () => {
     store.setSession(tokenResponse('jwt-1'));
     store.setUser(currentUser());
