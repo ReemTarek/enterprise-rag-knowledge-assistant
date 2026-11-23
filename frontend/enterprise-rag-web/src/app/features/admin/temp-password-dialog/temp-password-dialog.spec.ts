@@ -6,14 +6,14 @@ import { TEMP_PASSWORD } from '../users.testing';
 import { TempPasswordDialog, TempPasswordDialogData } from './temp-password-dialog';
 
 describe('TempPasswordDialog', () => {
-  function open(data?: TempPasswordDialogData) {
+  function open(data?: TempPasswordDialogData, disableClose = true) {
     TestBed.configureTestingModule({
       providers: [provideI18nTesting(), { provide: ANIMATION_MODULE_TYPE, useValue: 'NoopAnimations' }],
     });
     const payload = data ?? { email: 'grace@example.com', displayName: 'Grace', password: TEMP_PASSWORD };
     const ref = TestBed.inject(MatDialog).open(TempPasswordDialog, {
       data: payload,
-      disableClose: true,
+      disableClose,
     }) as MatDialogRef<TempPasswordDialog, void>;
     return { ref, payload };
   }
@@ -22,9 +22,36 @@ describe('TempPasswordDialog', () => {
     await vi.waitFor(() => expect(q('close')).not.toBeNull());
     await TestBed.inject(ApplicationRef).whenStable();
   };
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
   afterEach(() => {
     vi.restoreAllMocks();
+    document.documentElement.dir = 'ltr';
+    if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+    else delete (navigator as unknown as Record<string, unknown>)['clipboard'];
     document.querySelectorAll('.cdk-overlay-container').forEach((e) => e.remove());
+  });
+
+  const pressEscape = () =>
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }),
+    );
+
+  it('TempPasswordDialog_Control_EscapeAndBackdropClose_WhenDisableCloseIsFalse', async () => {
+    const { ref } = open(undefined, false);
+    let closed = false;
+    ref.afterClosed().subscribe(() => (closed = true));
+    await ready();
+    pressEscape();
+    await vi.waitFor(() => expect(closed).toBe(true));
+  });
+
+  it('TempPasswordDialog_Control_BackdropClickCloses_WhenDisableCloseIsFalse', async () => {
+    const { ref } = open(undefined, false);
+    let closed = false;
+    ref.afterClosed().subscribe(() => (closed = true));
+    await ready();
+    document.querySelector<HTMLElement>('.cdk-overlay-backdrop')!.click();
+    await vi.waitFor(() => expect(closed).toBe(true));
   });
 
   function stubClipboard(impl: () => Promise<void>) {
@@ -84,7 +111,10 @@ describe('TempPasswordDialog', () => {
     close.click();
     expect(closed).toBe(false);
     // Escape and backdrop do not dismiss it either.
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }));
+    pressEscape();
+    q('ack').closest('.cdk-overlay-container')!.querySelector<HTMLElement>('.cdk-overlay-backdrop')!.click();
+    await Promise.resolve();
+    expect(closed).toBe(false);
     q('ack').querySelector<HTMLInputElement>('input')!.click();
     await vi.waitFor(() => expect((q('close') as HTMLButtonElement).disabled).toBe(false));
     expect(closed).toBe(false);

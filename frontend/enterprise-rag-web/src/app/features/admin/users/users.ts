@@ -177,6 +177,8 @@ export class Users {
     this.dialog.open<TempPasswordDialog, TempPasswordDialogData, void>(TempPasswordDialog, {
       data,
       disableClose: true,
+      // Browser Back must not discard a server-set password the admin has not acknowledged.
+      closeOnNavigation: false,
       width: '520px',
       maxWidth: '95vw',
     });

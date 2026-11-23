@@ -2,6 +2,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ANIMATION_MODULE_TYPE, ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
 import { PROBLEM_TYPES } from '../../../core/api/problem-details';
 import { authInterceptor } from '../../../core/auth/auth.interceptor';
@@ -11,6 +12,7 @@ import { provideI18nTesting } from '../../../core/i18n/i18n.testing';
 import { problemBody } from '../../knowledge-bases/kb.testing';
 import { AdminUser } from '../users.models';
 import { TEMP_PASSWORD, USER_ID, makeAdminUser } from '../users.testing';
+import { TempPasswordDialog } from '../temp-password-dialog/temp-password-dialog';
 import { Users } from './users';
 
 const SELF_ID = '7d1f6c1e-0000-4000-8000-000000000001';
@@ -58,7 +60,24 @@ describe('Users page', () => {
     await f.whenStable();
     return f;
   }
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  /** The production opener must pin the one-time-secret dialog: not dismissable, survives navigation. */
+  function expectTempDialogPinned() {
+    const ref = TestBed.inject(MatDialog).openDialogs.at(-1)!;
+    expect(ref.componentInstance).toBeInstanceOf(TempPasswordDialog);
+    expect(ref.disableClose).toBe(true);
+    const cfg = (ref as unknown as { _containerInstance: { _config: MatDialogConfig } })._containerInstance._config;
+    expect(cfg.closeOnNavigation).toBe(false);
+    expect(cfg.disableClose).toBe(true);
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    document.querySelector<HTMLElement>('.cdk-overlay-backdrop')!.click();
+    expect(TestBed.inject(MatDialog).openDialogs.at(-1)).toBe(ref);
+  }
   afterEach(() => {
+    if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+    else delete (navigator as unknown as Record<string, unknown>)['clipboard'];
     vi.restoreAllMocks();
     ctrl.verify();
     document.querySelectorAll('.cdk-overlay-container').forEach((e) => e.remove());
@@ -182,6 +201,7 @@ describe('Users page', () => {
       expect((q(tid('password-field')) as HTMLInputElement).value).toBe(TEMP_PASSWORD),
     );
     expect(document.body.textContent).toContain('Grace Hopper');
+    expectTempDialogPinned();
     list().flush(paged([makeAdminUser({ mustChangePassword: true })]));
   });
 
@@ -211,6 +231,7 @@ describe('Users page', () => {
       expect((q(tid('password-field')) as HTMLInputElement).value).toBe(TEMP_PASSWORD),
     );
     expect(document.body.textContent).toContain('New Person');
+    expectTempDialogPinned();
     list().flush(paged([makeAdminUser({ displayName: 'New Person' })]));
     // Acknowledge and close: the password is gone from the DOM.
     q(tid('ack')).querySelector<HTMLInputElement>('input')!.click();

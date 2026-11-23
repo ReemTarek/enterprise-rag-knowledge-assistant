@@ -130,7 +130,11 @@ describe('CreateUserDialog', () => {
     expect(ref.disableClose).toBe(true);
     const cancel = document.querySelector<HTMLButtonElement>('[data-testid="cancel"]')!;
     await vi.waitFor(() => expect(cancel.disabled).toBe(true));
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }));
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    document.querySelector<HTMLElement>('.cdk-overlay-backdrop')!.click();
+    await Promise.resolve();
     expect(closed).toBe(false);
     // A second submit while pending sends nothing.
     submit();
