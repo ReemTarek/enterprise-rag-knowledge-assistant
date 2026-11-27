@@ -16,9 +16,6 @@ public static class AuthenticationSetup
     public const string LoginRateLimitPolicy = "login";
     public const string RefreshRateLimitPolicy = "refresh";
 
-    public const int LoginPermitsPerMinute = 10;
-    public const int RefreshPermitsPerMinute = 30;
-
     public const string SubjectClaim = "sub";
     public const string RoleClaim = "role";
 
@@ -113,15 +110,16 @@ public static class AuthenticationSetup
     /// <summary>
     /// Fixed-window limits per client IP for the anonymous token endpoints. The partition key is
     /// <c>Connection.RemoteIpAddress</c>; behind a reverse proxy this must be fed by ForwardedHeaders with a trusted
-    /// proxy list (Phase 11) — never by reading X-Forwarded-For directly, which a client can forge.
+    /// proxy list (Phase 11) — never by reading X-Forwarded-For directly, which a client can forge. Permits per minute come
+    /// from the validated <see cref="RateLimitOptions"/> (registered in Program.cs; production defaults 10 and 30).
     /// </summary>
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.AddPolicy(LoginRateLimitPolicy, context => PerIp(context, LoginPermitsPerMinute));
-            options.AddPolicy(RefreshRateLimitPolicy, context => PerIp(context, RefreshPermitsPerMinute));
+            options.AddPolicy(LoginRateLimitPolicy, context => PerIp(context, Limits(context).LoginPermitsPerMinute));
+            options.AddPolicy(RefreshRateLimitPolicy, context => PerIp(context, Limits(context).RefreshPermitsPerMinute));
             options.OnRejected = async (context, _) =>
             {
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
@@ -136,6 +134,10 @@ public static class AuthenticationSetup
         });
         return services;
     }
+
+    /// <summary>The validated <see cref="RateLimitOptions"/> (section <c>RateLimit</c>; defaults 10 and 30 per minute).</summary>
+    private static RateLimitOptions Limits(HttpContext context) =>
+        context.RequestServices.GetRequiredService<IOptions<RateLimitOptions>>().Value;
 
     private static RateLimitPartition<string> PerIp(HttpContext context, int permitsPerMinute) =>
         RateLimitPartition.GetFixedWindowLimiter(

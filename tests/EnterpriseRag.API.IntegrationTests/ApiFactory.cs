@@ -9,7 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EnterpriseRag.API.IntegrationTests;
 
-public sealed class ApiFactory(string environment = "Production", string? connectionString = null) : WebApplicationFactory<Program>
+/// <param name="settings">Extra configuration values (added after the defaults below, so they win).</param>
+public sealed class ApiFactory(
+    string environment = "Production",
+    string? connectionString = null,
+    IReadOnlyDictionary<string, string?>? settings = null) : WebApplicationFactory<Program>
 {
     // Short connect timeout: the startup admin seed probes the database and must give up quickly when it is down.
     public const string FakeConnectionString =
@@ -35,6 +39,10 @@ public sealed class ApiFactory(string environment = "Production", string? connec
                 ["Seed:AdminEmail"] = ApiDatabaseFixture.AdminEmail,
                 ["Seed:AdminPassword"] = ApiDatabaseFixture.AdminPassword,
             }));
+        if (settings is not null)
+        {
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
+        }
         // Test-only endpoints live in TestEndpointsController (this assembly) so they run through the real routing,
         // authorization and exception pipeline.
         builder.ConfigureServices(services =>

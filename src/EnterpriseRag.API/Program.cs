@@ -46,6 +46,7 @@ builder.Services.AddControllers()
             new System.Text.Json.Serialization.JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false));
     });
 builder.Services.AddApiAuthentication();
+builder.Services.AddValidatedOptions<RateLimitOptions>(builder.Configuration, RateLimitOptions.SectionName);
 builder.Services.AddApiRateLimiting();
 
 builder.Services.AddApiHealthChecks();

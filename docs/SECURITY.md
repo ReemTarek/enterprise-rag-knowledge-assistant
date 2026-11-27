@@ -38,7 +38,10 @@ Describes behaviour as implemented at the end of Phase 2a. See ADR 0004 for the 
   `POST /api/auth/password` 10/min, sharing one bucket (both are password oracles);
   `POST /api/auth/refresh` and `POST /api/auth/logout` 30/min. The partition key is the connection's remote IP. Behind
   a reverse proxy this needs `ForwardedHeaders` with a trusted-proxy list - Phase 11. `X-Forwarded-For` is never
-  read directly.
+  read directly. The limits are configuration-bound (`RateLimit:LoginPermitsPerMinute` = 10,
+  `RateLimit:RefreshPermitsPerMinute` = 30, validated 1-100000) only so that the E2E environment can raise them (its
+  browsers, workers and helpers share one IP; `scripts/e2e-stack.mjs` sets 1000/3000). **Production must keep the
+  defaults**; do not set these variables in a deployed environment.
 - **Per-request token re-validation**: on every authenticated request (JwtBearer `OnTokenValidated`) the user is
   looked up in SQL. The token is rejected (401) unless the user exists, is active, is not deleted and still holds
   exactly the role in the token. Deactivation, deletion and demotion therefore apply immediately, and authorization

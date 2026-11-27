@@ -189,3 +189,47 @@ public class AiOptionsNestedValidationTests
         Assert.Equal(768, sp.GetRequiredService<IOptions<AiOptions>>().Value.Ollama.EmbeddingDimensions);
     }
 }
+
+public class RateLimitOptionsTests
+{
+    private static ServiceProvider Build(Dictionary<string, string?> values)
+    {
+        IConfiguration config = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var services = new ServiceCollection();
+        services.AddValidatedOptions<RateLimitOptions>(config, RateLimitOptions.SectionName);
+        return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public void RateLimitOptions_Defaults_AreTheProductionLimits()
+    {
+        using var sp = Build([]);
+        var o = sp.GetRequiredService<IOptions<RateLimitOptions>>().Value;
+        Assert.Equal(10, o.LoginPermitsPerMinute);
+        Assert.Equal(30, o.RefreshPermitsPerMinute);
+    }
+
+    [Fact]
+    public void RateLimitOptions_BindsConfiguredValues()
+    {
+        using var sp = Build(new()
+        {
+            ["RateLimit:LoginPermitsPerMinute"] = "1000",
+            ["RateLimit:RefreshPermitsPerMinute"] = "3000",
+        });
+        var o = sp.GetRequiredService<IOptions<RateLimitOptions>>().Value;
+        Assert.Equal(1000, o.LoginPermitsPerMinute);
+        Assert.Equal(3000, o.RefreshPermitsPerMinute);
+    }
+
+    [Theory]
+    [InlineData("RateLimit:LoginPermitsPerMinute", "0")]
+    [InlineData("RateLimit:LoginPermitsPerMinute", "100001")]
+    [InlineData("RateLimit:RefreshPermitsPerMinute", "0")]
+    [InlineData("RateLimit:RefreshPermitsPerMinute", "-5")]
+    public void RateLimitOptions_OutOfRange_FailsValidation(string key, string value)
+    {
+        using var sp = Build(new() { [key] = value });
+        Assert.Throws<OptionsValidationException>(() => sp.GetRequiredService<IOptions<RateLimitOptions>>().Value);
+    }
+}

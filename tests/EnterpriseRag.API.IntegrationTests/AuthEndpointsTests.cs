@@ -116,6 +116,28 @@ public sealed class AuthEndpointsTests(ApiDatabaseFixture db) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RateLimits_AreBoundFromConfiguration()
+    {
+        // Proves the RateLimit section drives the limiter (the E2E stack raises it); the tests around use the defaults.
+        await using var factory = new ApiFactory(connectionString: db.ConnectionString, settings: new Dictionary<string, string?>
+        {
+            ["RateLimit:LoginPermitsPerMinute"] = "2",
+            ["RateLimit:RefreshPermitsPerMinute"] = "2",
+        });
+        using var client = AuthHttp.CreateClient(factory);
+        var email = ApiDatabaseFixture.UniqueEmail("nobody");
+
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, (await AuthHttp.LoginAsync(client, email, Password)).Response.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await AuthHttp.SendAsync(client, HttpMethod.Post, "/api/auth/logout")).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await AuthHttp.LoginAsync(client, email, Password)).Response.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await AuthHttp.SendAsync(client, HttpMethod.Post, "/api/auth/logout")).StatusCode);
+    }
+
+    [Fact]
     public async Task Login_And_Refresh_Responses_AreNotCacheable()
     {
         var (_, email) = await NewUserAsync();

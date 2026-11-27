@@ -52,6 +52,8 @@ Secrets must never be committed.
 | `Security__MaxFailedLogins` | no | 5 | lockout threshold (1-100) |
 | `Security__LockoutMinutes` | no | 15 | 1-1440 |
 | `Security__MinPasswordLength` | no | 12 | 8-128 |
+| `RateLimit__LoginPermitsPerMinute` | no | 10 | per client IP, fixed 1-minute window, login + password change (1-100000). **Keep the default in production**; only the E2E stack raises it (1000), because the whole suite shares one IP |
+| `RateLimit__RefreshPermitsPerMinute` | no | 30 | same for refresh + logout (1-100000); E2E stack: 3000 |
 
 Generate a signing key (cryptographically random, works on Windows PowerShell 5.1 and later):
 
