@@ -14,6 +14,7 @@ import { AdminUser } from '../users.models';
 import { TEMP_PASSWORD, USER_ID, makeAdminUser } from '../users.testing';
 import { TempPasswordDialog } from '../temp-password-dialog/temp-password-dialog';
 import { Users } from './users';
+import { isolatedTexts } from '../../../shared/bidi/bidi.testing';
 
 const SELF_ID = '7d1f6c1e-0000-4000-8000-000000000001';
 
@@ -306,5 +307,11 @@ describe('Users page', () => {
     ]);
     expect(everything).not.toContain(TEMP_PASSWORD);
     expect(document.cookie).not.toContain(TEMP_PASSWORD);
+  });
+
+  it('UserNames_AreBidiIsolated (admin users)', async () => {
+    const f = await loaded([makeAdminUser({ displayName: 'Bob <b>', email: 'bob@example.com' })]);
+    const row = el(f).querySelector(tid('user-row'))!;
+    expect(isolatedTexts(row)).toEqual(expect.arrayContaining(['Bob <b>', 'bob@example.com']));
   });
 });

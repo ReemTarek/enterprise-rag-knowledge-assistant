@@ -38,6 +38,7 @@ export const USER_SEARCH_MAX_CHARS = 100;
       <input
         matInput
         type="text"
+        dir="auto"
         autocomplete="off"
         data-testid="user-picker-input"
         [formControl]="text"
@@ -52,8 +53,7 @@ export const USER_SEARCH_MAX_CHARS = 100;
     >
       @for (u of visible(); track u.id) {
         <mat-option [value]="u">
-          <span>{{ u.displayName }}</span>
-          <span class="email"> {{ u.email }}</span>
+          <bdi>{{ u.displayName }}</bdi>&ngsp;<bdi class="email" dir="ltr">{{ u.email }}</bdi>
         </mat-option>
       }
     </mat-autocomplete>

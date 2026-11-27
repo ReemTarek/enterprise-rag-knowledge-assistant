@@ -11,6 +11,7 @@ import { Injector, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, of, switchMap, throwError } from 'rxjs';
 import { ApiError, toApiError } from '../api/api-error';
+import { AuthChannel } from './auth-channel';
 import { AuthService } from './auth.service';
 import { AuthStore } from './auth.store';
 
@@ -134,11 +135,15 @@ function recoverFrom401(
   );
 }
 
-/** Clears the session and routes to /login once (concurrent failures share the first redirect). */
+/**
+ * Clears the session and routes to /login once (concurrent failures share the first redirect). The refresh cookie is
+ * shared by all tabs, so the other tabs are told to sign out too (AuthChannel).
+ */
 function endSession(injector: Injector): void {
   const store = injector.get(AuthStore);
   if (!store.isAuthenticated()) return;
   store.clear();
+  injector.get(AuthChannel).publishLogout();
   const router = injector.get(Router);
   const returnUrl = router.url;
   const queryParams =

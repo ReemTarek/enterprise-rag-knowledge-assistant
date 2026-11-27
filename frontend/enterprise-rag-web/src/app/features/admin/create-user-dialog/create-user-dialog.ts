@@ -55,7 +55,14 @@ import {
       <mat-dialog-content>
         <mat-form-field>
           <mat-label>{{ 'admin.users.create.email' | transloco }}</mat-label>
-          <input matInput type="email" formControlName="email" autocomplete="off" required />
+          <input
+            matInput
+            type="email"
+            dir="ltr"
+            formControlName="email"
+            autocomplete="off"
+            required
+          />
           @if (form.controls.email.hasError('required')) {
             <mat-error>{{ 'admin.users.validation.emailRequired' | transloco }}</mat-error>
           } @else if (form.controls.email.hasError('email')) {
@@ -70,7 +77,7 @@ import {
         </mat-form-field>
         <mat-form-field>
           <mat-label>{{ 'admin.users.create.displayName' | transloco }}</mat-label>
-          <input matInput formControlName="displayName" autocomplete="off" required />
+          <input matInput dir="auto" formControlName="displayName" autocomplete="off" required />
           @if (form.controls.displayName.hasError('required')) {
             <mat-error>{{ 'admin.users.validation.nameRequired' | transloco }}</mat-error>
           } @else if (form.controls.displayName.hasError('maxlength')) {

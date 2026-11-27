@@ -47,6 +47,9 @@ function validationErrors(v: unknown): Record<string, string[]> | undefined {
   return out;
 }
 
+/** Statuses a proxy/gateway uses when the upstream API is down or unreachable. */
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
+
 /** Maps any HttpErrorResponse (problem+json, empty body, HTML from a proxy, network failure) to an ApiError. */
 export function toApiError(response: HttpErrorResponse): ApiError {
   const headerCorrelationId = str(response.headers?.get('X-Correlation-Id'));
@@ -61,6 +64,20 @@ export function toApiError(response: HttpErrorResponse): ApiError {
   }
 
   const body = isRecord(response.error) ? response.error : {};
+  const isProblem = str(body['type']) !== undefined || str(body['title']) !== undefined;
+
+  // A gateway answering for an unreachable API (dev proxy, reverse proxy) sends its own 502/503/504 page, not a
+  // ProblemDetails. For the user that is "cannot reach the server", so it gets the network type; the status is kept
+  // (it is not 401/403, so a failed refresh still keeps the session). A ProblemDetails 503 from the API keeps its type.
+  if (GATEWAY_STATUSES.has(response.status) && !isProblem) {
+    return new ApiError({
+      type: NETWORK_ERROR_TYPE,
+      title: str(response.statusText) ?? 'Network error',
+      status: response.status,
+      correlationId: headerCorrelationId,
+    });
+  }
+
   return new ApiError({
     type: str(body['type']) ?? problemTypeForStatus(response.status),
     title: str(body['title']) ?? str(response.statusText) ?? `HTTP ${response.status}`,

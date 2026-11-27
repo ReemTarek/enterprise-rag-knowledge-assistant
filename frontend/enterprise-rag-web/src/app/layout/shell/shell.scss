@@ -33,11 +33,6 @@
   display: block;
   padding: 16px;
 }
-a:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--mat-sys-primary);
-  outline-offset: 2px;
-}
 @media (max-width: 599.98px) {
   .brand {
     max-inline-size: 40vw;

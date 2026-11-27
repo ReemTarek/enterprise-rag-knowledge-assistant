@@ -70,7 +70,10 @@ type CopyState = 'idle' | 'copied' | 'failed';
     <h2 mat-dialog-title>{{ 'admin.tempPassword.title' | transloco }}</h2>
     <mat-dialog-content>
       <p class="who">
-        <strong>{{ data.displayName }}</strong> (<span dir="ltr">{{ data.email }}</span
+        <strong
+          ><bdi>{{ data.displayName }}</bdi></strong
+        >
+        (<bdi dir="ltr">{{ data.email }}</bdi
         >)
       </p>
       <p class="warning" data-testid="warning">{{ 'admin.tempPassword.warning' | transloco }}</p>

@@ -21,6 +21,7 @@ import { Subscription, filter, switchMap } from 'rxjs';
 import { asApiError, correlationIdFor, messageKeyFor } from '../../../core/api/error-message';
 import '../../../core/i18n/locale-data';
 import { LanguageService } from '../../../core/i18n/language.service';
+import { isolate } from '../../../shared/bidi/isolate';
 import { ConfirmDialog, ConfirmDialogData } from '../../../shared/confirm-dialog/confirm-dialog';
 import { ErrorBanner } from '../../../shared/error-banner/error-banner';
 import { NotFound } from '../../../shared/not-found/not-found';
@@ -215,7 +216,7 @@ export class KbDetail {
     if (!kb || this.pending() || !this.canOwn()) return;
     const data: ConfirmDialogData = {
       title: this.transloco.translate('kb.detail.deleteTitle'),
-      message: this.transloco.translate('kb.detail.deleteMessage', { name: kb.name }),
+      message: this.transloco.translate('kb.detail.deleteMessage', { name: isolate(kb.name) }),
       confirmLabel: this.transloco.translate('common.delete'),
     };
     this.dialog

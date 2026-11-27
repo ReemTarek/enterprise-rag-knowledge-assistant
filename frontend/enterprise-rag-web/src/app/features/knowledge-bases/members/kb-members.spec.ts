@@ -11,6 +11,7 @@ import { provideI18nTesting } from '../../../core/i18n/i18n.testing';
 import { UserPicker } from '../../../shared/user-picker/user-picker';
 import { KB_ID, makeMember, problemBody } from '../kb.testing';
 import { KbMembers } from './kb-members';
+import { isolatedTexts } from '../../../shared/bidi/bidi.testing';
 
 const OWNER = makeMember({
   userId: 'u-owner',
@@ -331,5 +332,37 @@ describe('KbMembers', () => {
     expect(el(f).querySelector('[data-testid="members-error"]')?.textContent).toContain(
       'must keep at least one owner',
     );
+  });
+
+  it('MemberRoleSelect_HasAccessibleName', async () => {
+    const f = await setup(true);
+    const selects = el(f).querySelectorAll<HTMLElement>('[data-testid="role-select"]');
+    expect(selects.length).toBe(2);
+    // The name must come from aria-label: an aria-labelledby pointing at the value text would win over it and the
+    // combobox would be announced only as "Owner".
+    expect(selects[0].getAttribute('aria-label')).toBe('Change role of Ada Lovelace');
+    expect(selects[0].getAttribute('aria-labelledby')).toBeNull();
+    expect(selects[1].getAttribute('aria-label')).toBe('Change role of Grace Hopper');
+    const removes = el(f).querySelectorAll('[data-testid="remove-member"]');
+    expect(removes[0].getAttribute('aria-label')).toBe('Remove Ada Lovelace');
+  });
+
+  it('UserNames_AreBidiIsolated (members)', async () => {
+    const f = await setup(true);
+    const rows = el(f).querySelectorAll('[data-testid="member-row"]');
+    expect(isolatedTexts(rows[0])).toEqual(
+      expect.arrayContaining(['Ada Lovelace', 'ada@example.com']),
+    );
+    expect(isolatedTexts(rows[1])).toEqual(
+      expect.arrayContaining(['Grace Hopper', 'grace@example.com']),
+    );
+  });
+
+  it('UserNames_AreBidiIsolated (remove confirmation)', async () => {
+    const f = await setup(true);
+    const open = confirmWith(false);
+    el(f).querySelector<HTMLButtonElement>('[data-testid="remove-member"]')!.click();
+    const data = open.mock.calls[0][1]!.data as { message: string };
+    expect(data.message).toContain('⁨Ada Lovelace⁩');
   });
 });

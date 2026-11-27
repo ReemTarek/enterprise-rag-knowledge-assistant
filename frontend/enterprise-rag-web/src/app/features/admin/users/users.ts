@@ -15,6 +15,7 @@ import {
   ConfirmDialog,
   ConfirmDialogData,
 } from '../../../shared/confirm-dialog/confirm-dialog';
+import { isolate } from '../../../shared/bidi/isolate';
 import { ErrorBanner } from '../../../shared/error-banner/error-banner';
 import { TranslatedPaginatorIntl } from '../../../shared/translated-paginator-intl';
 import { CreateUserDialog } from '../create-user-dialog/create-user-dialog';
@@ -123,7 +124,7 @@ export class Users {
   protected deactivate(user: AdminUser): void {
     this.confirm(
       this.transloco.translate('admin.users.deactivateTitle'),
-      this.transloco.translate('admin.users.deactivateMessage', { name: user.displayName }),
+      this.transloco.translate('admin.users.deactivateMessage', { name: isolate(user.displayName) }),
       this.transloco.translate('admin.users.deactivate'),
     )
       .pipe(switchMap(() => this.run(this.api.deactivate(user.id))))
@@ -136,7 +137,7 @@ export class Users {
   protected resetPassword(user: AdminUser): void {
     this.confirm(
       this.transloco.translate('admin.users.resetTitle'),
-      this.transloco.translate('admin.users.resetMessage', { name: user.displayName }),
+      this.transloco.translate('admin.users.resetMessage', { name: isolate(user.displayName) }),
       this.transloco.translate('admin.users.resetPassword'),
     )
       .pipe(switchMap(() => this.run(this.api.resetPassword(user.id))))

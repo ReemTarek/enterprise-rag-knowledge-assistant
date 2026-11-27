@@ -152,4 +152,20 @@ describe('ChangePasswordComponent', () => {
     const f = await setup(false);
     expect(el(f).querySelector('[data-testid=must-change-banner]')).toBeNull();
   });
+
+  // D1. jsdom does no layout, so the overlap itself cannot be measured here (the Playwright suite does that). This pins
+  // the structural fix: with dynamic subscript sizing the field grows to fit a hint/error that wraps to several lines
+  // instead of drawing it over the next field.
+  it('ChangePassword_HintDoesNotOverlapConfirm', async () => {
+    const f = await setup(true);
+    const fields = Array.from(el(f).querySelectorAll('mat-form-field'));
+    expect(fields.length).toBe(3);
+    const withHint = fields.filter((ff) => ff.querySelector('mat-hint'));
+    expect(withHint.length).toBe(1);
+    expect(withHint[0].querySelector('mat-hint')!.textContent).toContain('At least 12 characters');
+    for (const ff of fields) {
+      const subscript = ff.querySelector('.mat-mdc-form-field-subscript-wrapper')!;
+      expect(subscript.classList).toContain('mat-mdc-form-field-subscript-dynamic-size');
+    }
+  });
 });

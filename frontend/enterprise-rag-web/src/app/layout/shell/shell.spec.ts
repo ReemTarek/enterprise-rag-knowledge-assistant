@@ -11,6 +11,7 @@ import { currentUser, tokenResponse } from '../../core/auth/auth.testing';
 import { provideI18nTesting } from '../../core/i18n/i18n.testing';
 import { LanguageService } from '../../core/i18n/language.service';
 import { AppTitleStrategy } from '../../core/navigation/app-title.strategy';
+import { isolatedTexts } from '../../shared/bidi/bidi.testing';
 
 function configure(opts: { admin?: boolean; mustChange?: boolean } = {}) {
   localStorage.clear();
@@ -93,5 +94,34 @@ describe('Shell', () => {
     await vi.waitFor(() => expect(TestBed.inject(Router).url).toContain('/login'));
     expect(store.isAuthenticated()).toBe(false);
     expect(pending.cancelled).toBe(false);
+  });
+
+  it('Shell_HasHeaderAndNavLandmarks', async () => {
+    configure({ admin: true });
+    const h = await RouterTestingHarness.create('/knowledge-bases');
+    const shell = shellOf(h);
+    const header = shell.querySelector('header');
+    expect(header).not.toBeNull();
+    // The brand and the toolbar controls sit inside the banner landmark (axe "region").
+    expect(header!.querySelector('mat-toolbar .brand')?.textContent).toContain('Enterprise RAG');
+    expect(header!.querySelector('[data-testid=user-menu]')).not.toBeNull();
+    expect(header!.querySelector('app-language-switcher')).not.toBeNull();
+    const nav = header!.querySelector('nav');
+    expect(nav?.getAttribute('aria-label')).toBe('Main navigation');
+    expect(nav!.querySelectorAll('a').length).toBe(2);
+    const main = shell.querySelector('main');
+    expect(main?.querySelector('router-outlet')).not.toBeNull();
+    expect(main?.querySelector('app-kb-list')).not.toBeNull(); // the routed page renders inside <main>
+    expect(header!.contains(main)).toBe(false);
+  });
+
+  it('UserNames_AreBidiIsolated (user menu)', async () => {
+    configure();
+    const h = await RouterTestingHarness.create('/knowledge-bases');
+    shellOf(h).querySelector<HTMLButtonElement>('[data-testid=user-menu]')!.click();
+    h.fixture.detectChanges();
+    await h.fixture.whenStable();
+    const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    expect(isolatedTexts(overlay)).toEqual(expect.arrayContaining(['Ada', 'ada@example.com']));
   });
 });

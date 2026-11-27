@@ -19,6 +19,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { Observable, filter, switchMap } from 'rxjs';
 import { asApiError, correlationIdFor, messageKeyFor } from '../../../core/api/error-message';
 import { ConfirmDialog, ConfirmDialogData } from '../../../shared/confirm-dialog/confirm-dialog';
+import { isolate } from '../../../shared/bidi/isolate';
 import { ErrorBanner } from '../../../shared/error-banner/error-banner';
 import { DirectoryUser } from '../../../shared/user-picker/directory-user';
 import { UserPicker } from '../../../shared/user-picker/user-picker';
@@ -124,7 +125,9 @@ export class KbMembers implements OnInit {
     if (this.pending()) return;
     const data: ConfirmDialogData = {
       title: this.transloco.translate('kb.members.removeTitle'),
-      message: this.transloco.translate('kb.members.removeMessage', { name: member.displayName }),
+      message: this.transloco.translate('kb.members.removeMessage', {
+        name: isolate(member.displayName),
+      }),
       confirmLabel: this.transloco.translate('kb.members.remove'),
     };
     this.dialog

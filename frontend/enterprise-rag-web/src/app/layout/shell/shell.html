@@ -1,68 +1,81 @@
-<mat-toolbar class="bar">
-  <span class="brand">{{ 'app.name' | transloco }}</span>
+<header>
+  <mat-toolbar class="bar">
+    <span class="brand">{{ 'app.name' | transloco }}</span>
 
-  @if (showNav()) {
-    @if (compact()) {
-      <button
-        mat-icon-button
-        type="button"
-        data-testid="nav-menu"
-        [matMenuTriggerFor]="navMenu"
-        [attr.aria-label]="'nav.openMenu' | transloco"
-      >
-        <mat-icon aria-hidden="true">menu</mat-icon>
-      </button>
-      <mat-menu #navMenu="matMenu">
-        <a mat-menu-item routerLink="/knowledge-bases">{{ 'nav.knowledgeBases' | transloco }}</a>
-        @if (store.isAdmin()) {
-          <a mat-menu-item routerLink="/admin">{{ 'nav.administration' | transloco }}</a>
-        }
-      </mat-menu>
-    } @else {
+    @if (showNav()) {
       <nav class="nav" [attr.aria-label]="'nav.main' | transloco">
-        <a
-          mat-button
-          routerLink="/knowledge-bases"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-        >
-          {{ 'nav.knowledgeBases' | transloco }}
-        </a>
-        @if (store.isAdmin()) {
-          <a mat-button routerLink="/admin" routerLinkActive="active" ariaCurrentWhenActive="page">
-            {{ 'nav.administration' | transloco }}
+        @if (compact()) {
+          <button
+            mat-icon-button
+            type="button"
+            data-testid="nav-menu"
+            [matMenuTriggerFor]="navMenu"
+            [attr.aria-label]="'nav.openMenu' | transloco"
+          >
+            <mat-icon aria-hidden="true">menu</mat-icon>
+          </button>
+          <mat-menu #navMenu="matMenu">
+            <a mat-menu-item routerLink="/knowledge-bases">{{
+              'nav.knowledgeBases' | transloco
+            }}</a>
+            @if (store.isAdmin()) {
+              <a mat-menu-item routerLink="/admin">{{ 'nav.administration' | transloco }}</a>
+            }
+          </mat-menu>
+        } @else {
+          <a
+            mat-button
+            routerLink="/knowledge-bases"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+          >
+            {{ 'nav.knowledgeBases' | transloco }}
           </a>
+          @if (store.isAdmin()) {
+            <a
+              mat-button
+              routerLink="/admin"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+            >
+              {{ 'nav.administration' | transloco }}
+            </a>
+          }
         }
       </nav>
     }
-  }
 
-  <span class="spacer"></span>
-  <app-language-switcher />
-  <button
-    mat-icon-button
-    type="button"
-    data-testid="user-menu"
-    [matMenuTriggerFor]="userMenu"
-    [attr.aria-label]="'user.menu' | transloco"
-  >
-    <mat-icon aria-hidden="true">account_circle</mat-icon>
-  </button>
-  <mat-menu #userMenu="matMenu">
-    @if (store.user(); as user) {
-      <div class="who">
-        <div class="name">{{ user.displayName }}</div>
-        <div class="email">{{ user.email }}</div>
-      </div>
-    }
-    @if (showNav()) {
-      <a mat-menu-item routerLink="/settings">{{ 'user.settings' | transloco }}</a>
-    }
-    <button mat-menu-item type="button" data-testid="logout" (click)="logout()">
-      {{ 'user.logout' | transloco }}
+    <span class="spacer"></span>
+    <app-language-switcher />
+    <button
+      mat-icon-button
+      type="button"
+      data-testid="user-menu"
+      [matMenuTriggerFor]="userMenu"
+      [attr.aria-label]="'user.menu' | transloco"
+    >
+      <mat-icon aria-hidden="true">account_circle</mat-icon>
     </button>
-  </mat-menu>
-</mat-toolbar>
+    <mat-menu #userMenu="matMenu">
+      @if (store.user(); as user) {
+        <div class="who">
+          <div class="name">
+            <bdi>{{ user.displayName }}</bdi>
+          </div>
+          <div class="email">
+            <bdi dir="ltr">{{ user.email }}</bdi>
+          </div>
+        </div>
+      }
+      @if (showNav()) {
+        <a mat-menu-item routerLink="/settings">{{ 'user.settings' | transloco }}</a>
+      }
+      <button mat-menu-item type="button" data-testid="logout" (click)="logout()">
+        {{ 'user.logout' | transloco }}
+      </button>
+    </mat-menu>
+  </mat-toolbar>
+</header>
 
 <main class="content">
   <router-outlet />

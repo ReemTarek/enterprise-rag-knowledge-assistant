@@ -1,4 +1,10 @@
 import { vi } from 'vitest';
+import { installFakeBroadcastChannel } from './app/core/auth/broadcast-channel.testing';
+
+// Cross-tab sign-out uses BroadcastChannel. Node's implementation reaches other worker threads (other spec files
+// running in parallel), so every spec gets an in-process fake instead. Assigned directly (not vi.stubGlobal) so a
+// spec's vi.unstubAllGlobals() cannot remove it.
+installFakeBroadcastChannel();
 
 /**
  * Vitest's `vi.waitFor` defaults to a 1 s timeout. The first spec in a file pays the cold-start cost of

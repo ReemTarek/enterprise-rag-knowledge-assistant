@@ -12,6 +12,7 @@ import { provideI18nTesting } from '../../../core/i18n/i18n.testing';
 import { KB_ROUTES } from '../kb.routes';
 import { KB_ID, makeKb, makeMember, problemBody } from '../kb.testing';
 import { KbRole } from '../kb.models';
+import { isolatedTexts } from '../../../shared/bidi/bidi.testing';
 
 const URL_ = `/api/knowledge-bases/${KB_ID}`;
 
@@ -343,5 +344,11 @@ describe('KbDetail', () => {
     await stable();
     await editName('After members');
     expect(ctrl.expectOne(URL_).request.headers.get('If-Match')).toBe('"v3"');
+  });
+
+  it('UserNames_AreBidiIsolated (kb detail header)', async () => {
+    await load('Owner');
+    expect(isolatedTexts(q('kb-name')!)).toContain('HR handbook');
+    expect(isolatedTexts(q('kb-description')!)).toContain('Policies and onboarding');
   });
 });

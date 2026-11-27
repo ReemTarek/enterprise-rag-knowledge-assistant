@@ -93,4 +93,16 @@ describe('UserPicker', () => {
     expect(texts.some((t) => t?.includes('Ada'))).toBe(false);
     expect(texts.some((t) => t?.includes('Grace'))).toBe(true);
   });
+
+  it('UserPicker_SearchInput_IsDirAuto_AndOptionsAreBidiIsolated', async () => {
+    await setup();
+    // Name-or-email search: the direction follows what is typed (Latin email or Arabic name).
+    expect(input().getAttribute('dir')).toBe('auto');
+    input().focus();
+    type('ada');
+    await vi.waitFor(() => expect(options().length).toBe(2));
+    const first = options()[0];
+    const isolated = Array.from(first.querySelectorAll('bdi')).map((b) => b.textContent!.trim());
+    expect(isolated).toEqual(['Ada Lovelace', 'ada@example.com']);
+  });
 });

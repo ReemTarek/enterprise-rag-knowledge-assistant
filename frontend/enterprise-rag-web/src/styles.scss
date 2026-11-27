@@ -37,3 +37,23 @@ body {
   height: 100%;
 }
 /* You can add global styles to this file, and also import other style files */
+
+// Keyboard focus ring (WCAG 2.4.7 / 2.4.11). Material only tints the state layer of a focused button, which is hard
+// to see on filled and icon buttons, and mat-select/menu items set `outline: none`. `:focus-visible` matches keyboard
+// focus only, so mouse clicks look unchanged. `html` raises specificity above Material's own `outline: none` rules
+// (component styles are added after this sheet). The primary token contrasts with the surface in light and dark.
+html a:focus-visible,
+html button:focus-visible,
+html .mat-mdc-button-base:focus-visible,
+html .mat-mdc-icon-button:focus-visible,
+html .mat-mdc-select:focus-visible,
+html [role='tab']:focus-visible {
+  outline: 3px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+// Menu items fill the menu panel, which clips anything drawn outside them: draw the ring inside.
+html .mat-mdc-menu-item:focus-visible {
+  outline: 3px solid var(--mat-sys-primary);
+  outline-offset: -3px;
+}

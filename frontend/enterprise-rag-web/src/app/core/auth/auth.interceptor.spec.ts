@@ -159,9 +159,26 @@ describe('authInterceptor', () => {
       429,
       PROBLEM_TYPES.tooManyRequests,
     ],
+    // A proxy 502/503/504 without a ProblemDetails body is the network kind (D8); the session is still kept.
     [
       '503',
       (r) => r.flush(null, { status: 503, statusText: 'Service Unavailable' }),
+      503,
+      'network',
+    ],
+    [
+      '502Html',
+      (r) => r.flush('<html>Bad Gateway</html>', { status: 502, statusText: 'Bad Gateway' }),
+      502,
+      'network',
+    ],
+    [
+      '503Problem',
+      (r) =>
+        r.flush(problem(503, 'https://enterprise-rag.local/problems/http-503'), {
+          status: 503,
+          statusText: 'Service Unavailable',
+        }),
       503,
       'https://enterprise-rag.local/problems/http-503',
     ],

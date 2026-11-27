@@ -55,8 +55,12 @@
       <tbody>
         @for (m of members(); track m.userId) {
           <tr data-testid="member-row">
-            <td>{{ m.displayName }}</td>
-            <td>{{ m.email }}</td>
+            <td>
+              <bdi>{{ m.displayName }}</bdi>
+            </td>
+            <td>
+              <bdi dir="ltr">{{ m.email }}</bdi>
+            </td>
             <td>
               @if (canManage()) {
                 <mat-select
@@ -64,9 +68,7 @@
                   data-testid="role-select"
                   [value]="m.role"
                   [disabled]="pending()"
-                  [attr.aria-label]="
-                    'kb.members.changeRoleFor' | transloco: { name: m.displayName }
-                  "
+                  [aria-label]="'kb.members.changeRoleFor' | transloco: { name: m.displayName }"
                   (selectionChange)="changeRole(m, $event)"
                 >
                   @for (r of roles; track r) {

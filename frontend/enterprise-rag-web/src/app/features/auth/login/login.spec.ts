@@ -168,4 +168,21 @@ describe('LoginComponent', () => {
     const alert = el(f).querySelector('[role=alert], [aria-live]');
     expect(alert).not.toBeNull();
   });
+
+  it('LoginComponent_ProxyBadGateway_ShowsNetworkMessage', async () => {
+    const f = await setup();
+    await login(f);
+    ctrl
+      .expectOne('/api/auth/login')
+      .flush('<html>Bad Gateway</html>', { status: 502, statusText: 'Bad Gateway' });
+    await f.whenStable();
+    const text = el(f).querySelector('[role=alert]')!.textContent!;
+    expect(text).toContain('Cannot reach the server');
+    expect(text).not.toContain('Something went wrong');
+  });
+
+  it('EmailInputs_AreLtr (login)', async () => {
+    const f = await setup();
+    expect(input(f, 'email').getAttribute('dir')).toBe('ltr');
+  });
 });

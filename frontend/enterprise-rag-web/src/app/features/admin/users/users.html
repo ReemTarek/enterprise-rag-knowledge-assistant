@@ -41,13 +41,13 @@
               {{ 'admin.users.columns.displayName' | transloco }}
             </th>
             <td mat-cell *matCellDef="let u">
-              <span class="text">{{ u.displayName }}</span>
+              <bdi class="text">{{ u.displayName }}</bdi>
             </td>
           </ng-container>
           <ng-container matColumnDef="email">
             <th mat-header-cell *matHeaderCellDef>{{ 'admin.users.columns.email' | transloco }}</th>
             <td mat-cell *matCellDef="let u">
-              <span class="text" dir="ltr">{{ u.email }}</span>
+              <bdi class="text" dir="ltr">{{ u.email }}</bdi>
             </td>
           </ng-container>
           <ng-container matColumnDef="role">

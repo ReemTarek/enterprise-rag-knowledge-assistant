@@ -142,4 +142,11 @@ describe('CreateUserDialog', () => {
     await vi.waitFor(() => expect(ref.disableClose).toBe(false));
     expect(closed).toBe(false);
   });
+
+  it('EmailInputs_AreLtr (create user)', async () => {
+    await open();
+    expect(input('email').getAttribute('dir')).toBe('ltr');
+    // The display name may be Arabic or Latin: it follows its own first strong character.
+    expect(input('displayName').getAttribute('dir')).toBe('auto');
+  });
 });

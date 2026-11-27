@@ -9,6 +9,7 @@ import { provideI18nTesting } from '../../../core/i18n/i18n.testing';
 import { KB_ID, makeKb, problemBody } from '../kb.testing';
 import { KbCreateDialog } from '../create-dialog/kb-create-dialog';
 import { KbList } from './kb-list';
+import { isolatedTexts } from '../../../shared/bidi/bidi.testing';
 
 describe('KbList', () => {
   let ctrl: HttpTestingController;
@@ -127,5 +128,20 @@ describe('KbList', () => {
     expect(el(f).textContent).toContain(evil);
     expect(el(f).querySelector('script')).toBeNull();
     expect(el(f).querySelector('img')).toBeNull();
+  });
+
+  it('UserNames_AreBidiIsolated (kb list)', async () => {
+    const f = await setup();
+    page().flush({
+      items: [makeKb({ name: 'Plain KB <b>' })],
+      page: 1,
+      pageSize: 10,
+      totalCount: 1,
+    });
+    await f.whenStable();
+    const row = el(f).querySelector('[data-testid="kb-row"]')!;
+    expect(isolatedTexts(row)).toEqual(
+      expect.arrayContaining(['Plain KB <b>', 'Policies and onboarding']),
+    );
   });
 });

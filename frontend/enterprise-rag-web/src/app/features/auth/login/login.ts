@@ -15,6 +15,7 @@ import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ApiError } from '../../../core/api/api-error';
+import { NETWORK_ERROR_TYPE } from '../../../core/api/problem-details';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { sanitizeReturnUrl } from '../../../core/navigation/safe-return-url';
@@ -87,13 +88,15 @@ export class Login {
     // resetForm also clears the "submitted" state, so no field error flashes for the emptied password.
     this.formDirective()?.resetForm({ email: this.form.controls.email.value, password: '' });
     const status = error instanceof ApiError ? error.status : 0;
+    // Status 0 and a gateway 502/503/504 without ProblemDetails (API down behind a proxy) both mean "unreachable".
+    const unreachable = !(error instanceof ApiError) || error.type === NETWORK_ERROR_TYPE;
     this.correlationId.set(undefined);
     if (status === 401) {
       this.errorKey.set('login.error.invalid');
     } else if (status === 429) {
       this.errorKey.set('login.error.rateLimited');
     } else {
-      this.errorKey.set(status === 0 ? 'errors.network' : 'errors.generic');
+      this.errorKey.set(unreachable ? 'errors.network' : 'errors.generic');
       this.correlationId.set(error instanceof ApiError ? error.correlationId : undefined);
     }
     afterNextRender(() => this.banner()?.focus(), { injector: this.injector });

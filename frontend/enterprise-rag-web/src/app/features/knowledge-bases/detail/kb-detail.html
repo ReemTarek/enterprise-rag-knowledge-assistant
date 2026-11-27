@@ -22,9 +22,15 @@
 
       <header class="head">
         <div class="titles">
-          <h1 data-testid="kb-name">{{ k.name }}</h1>
+          <h1 data-testid="kb-name">
+            <bdi>{{ k.name }}</bdi>
+          </h1>
           <p class="description" data-testid="kb-description">
-            {{ k.description || ('kb.detail.noDescription' | transloco) }}
+            @if (k.description) {
+              <bdi>{{ k.description }}</bdi>
+            } @else {
+              {{ 'kb.detail.noDescription' | transloco }}
+            }
           </p>
           <p class="role">
             <span class="chip">{{

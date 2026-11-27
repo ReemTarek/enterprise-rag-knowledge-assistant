@@ -38,7 +38,7 @@
                 class="name"
                 [routerLink]="['/knowledge-bases', kb.id]"
                 (click)="$event.stopPropagation()"
-                >{{ kb.name }}</a
+                ><bdi>{{ kb.name }}</bdi></a
               >
             </td>
           </ng-container>
@@ -47,7 +47,7 @@
               {{ 'kb.list.columns.description' | transloco }}
             </th>
             <td mat-cell *matCellDef="let kb">
-              <span class="description">{{ kb.description }}</span>
+              <bdi class="description">{{ kb.description }}</bdi>
             </td>
           </ng-container>
           <ng-container matColumnDef="role">

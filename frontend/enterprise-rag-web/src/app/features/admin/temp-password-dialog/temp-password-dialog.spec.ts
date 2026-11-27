@@ -4,6 +4,7 @@ import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { provideI18nTesting } from '../../../core/i18n/i18n.testing';
 import { TEMP_PASSWORD } from '../users.testing';
 import { TempPasswordDialog, TempPasswordDialogData } from './temp-password-dialog';
+import { isolatedTexts } from '../../../shared/bidi/bidi.testing';
 
 describe('TempPasswordDialog', () => {
   function open(data?: TempPasswordDialogData, disableClose = true) {
@@ -139,5 +140,12 @@ describe('TempPasswordDialog', () => {
     const component = ref.componentInstance;
     ref.close();
     await vi.waitFor(() => expect(component.password()).toBeNull());
+  });
+
+  it('UserNames_AreBidiIsolated (temp password dialog)', async () => {
+    open();
+    await ready();
+    const who = document.querySelector('mat-dialog-content .who')!;
+    expect(isolatedTexts(who)).toEqual(expect.arrayContaining(['Grace', 'grace@example.com']));
   });
 });

@@ -1,4 +1,6 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, Injector, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
 import {
   Observable,
   catchError,
@@ -15,6 +17,7 @@ import {
 import { ApiClientService } from '../api/api-client.service';
 import { ApiError } from '../api/api-error';
 import { PROBLEM_TYPES } from '../api/problem-details';
+import { AuthChannel } from './auth-channel';
 import { ChangePasswordRequest, CurrentUser, LoginRequest, TokenResponse } from './auth.models';
 import { AuthStore } from './auth.store';
 
@@ -41,9 +44,16 @@ function sessionEnded(): ApiError {
 export class AuthService {
   private readonly api = inject(ApiClientService);
   private readonly store = inject(AuthStore);
+  private readonly channel = inject(AuthChannel);
+  private readonly injector = inject(Injector);
 
   /** The in-flight refresh shared by every caller (single-flight); reset when it settles. */
   private refreshInFlight: Observable<string> | null = null;
+
+  constructor() {
+    // Created at app start (the session-restore initializer), so every tab listens from the beginning.
+    this.channel.logout$.pipe(takeUntilDestroyed()).subscribe(() => this.signedOutElsewhere());
+  }
 
   login(email: string, password: string): Observable<void> {
     const body: LoginRequest = { email, password };
@@ -96,11 +106,13 @@ export class AuthService {
   /**
    * Signs out locally at once (synchronously, before the server answers, even if nobody subscribes), then asks the
    * server to revoke the refresh family: best effort, at most LOGOUT_TIMEOUT_MS, never errors. Clearing the store
-   * starts a new session generation, so a refresh still in flight cannot sign the client back in. Caller navigates.
+   * starts a new session generation, so a refresh still in flight cannot sign the client back in. The other open tabs
+   * are told to sign out too (AuthChannel; the message carries no session data). Caller navigates.
    */
   logout(): Observable<void> {
     this.store.clear();
     this.refreshInFlight = null;
+    this.channel.publishLogout();
     return this.api.post<unknown>(AUTH_URLS.logout, null).pipe(
       timeout({ first: LOGOUT_TIMEOUT_MS }),
       catchError(() => of(null)),
@@ -118,6 +130,18 @@ export class AuthService {
 
   loadMe(): Observable<CurrentUser> {
     return this.api.get<CurrentUser>(AUTH_URLS.me).pipe(tap((user) => this.store.setUser(user)));
+  }
+
+  /**
+   * Another tab signed out (or its refresh cookie was rejected): the shared refresh cookie is gone, so drop the
+   * in-memory session here too and go to /login. Clearing bumps the generation, so an in-flight refresh cannot sign
+   * this tab back in. Does not publish again (no ping-pong between tabs) and does not navigate when already on /login.
+   */
+  private signedOutElsewhere(): void {
+    this.store.clear();
+    this.refreshInFlight = null;
+    const router = this.injector.get(Router);
+    if (!router.url.startsWith('/login')) void router.navigate(['/login']);
   }
 
   /**
