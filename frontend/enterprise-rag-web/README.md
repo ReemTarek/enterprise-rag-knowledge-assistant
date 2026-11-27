@@ -12,6 +12,29 @@ Angular 22 client (standalone components, SCSS, Angular Material, zoneless, Vite
 | `npm run lint` | angular-eslint + `scripts/check-no-unsafe.mjs` + guard self-test |
 | `npm run test:guard` | Self-test of the unsafe-pattern guard |
 | `npm run build` | Production build into `dist/` |
+| `npm run e2e:stack` | Start SQL (Docker) + migrations + API in Release for E2E; keep it running |
+| `npm run e2e` | Playwright E2E suite (starts `npm start` itself; needs `e2e:stack`) |
+| `npm run e2e:report` | Open the last HTML report |
+
+## E2E tests
+
+Full-stack Playwright specs live in `e2e/` (Chromium; `@axe-core/playwright` for accessibility).
+Prerequisites: Docker Desktop running, the .NET SDK (`global.json`), Node 24/26, `npm ci`, and once
+`npx playwright install chromium`.
+
+```bash
+npm run e2e:stack              # shell 1: wait for "stack ready" (Ctrl+C stops the API)
+npm run e2e                    # shell 2: whole suite
+npm run e2e -- e2e/smoke.spec.ts
+npx playwright test --ui       # debug: UI mode; failing tests keep traces in test-results/
+npm run e2e:report             # HTML report
+```
+
+Credentials are generated per machine into the git-ignored `e2e/.auth/stack.env.json` (never printed); override with
+`E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_ADMIN_NEW_PASSWORD`, `E2E_BASE_URL`, `E2E_API_URL`. `npm run e2e:stack --
+--fresh` recreates the SQL volume (deletes all local SQL data) when the stored credentials no longer match the database.
+Read `docs/FRONTEND.md` "E2E tests" before writing specs: the refresh cookie rotates (never share one `storageState`
+between tests; use the fixtures) and the API rate limits (login 10/min/IP) apply to the whole suite.
 
 ## API proxy
 

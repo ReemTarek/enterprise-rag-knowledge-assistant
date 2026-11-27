@@ -147,6 +147,81 @@ user was not found.
 - `npm run build` - production build. `npm audit --omit=dev --audit-level=high` should report no high issues.
 - CI job `frontend` (`.github/workflows/ci.yml`) runs `npm ci`, lint, test:ci, build on Node 24.x. **It has not run on
   GitHub yet.**
+- `npm run lint` also runs `e2e:typecheck` (`tsc -p e2e/tsconfig.json`; Playwright itself only transpiles) and
+  `ng lint` covers `e2e/**/*.ts` and `playwright.config.ts`. The unsafe guard and the i18n parity check scan `src/` only.
+
+## E2E tests (Playwright, full stack)
+
+`frontend/enterprise-rag-web/e2e/` holds `@playwright/test` specs (with `@axe-core/playwright` for accessibility) that
+drive Chromium against the **real** stack: SQL Server (Docker) -> migrated database -> API in Release -> Angular dev
+server with the same-origin proxy. Nothing is mocked for the main flows; test data is created through the public API.
+
+**Prerequisites:** Docker Desktop (running), the .NET SDK from `global.json`, Node 24 or 26, `npm ci`, and once
+`npx playwright install chromium` (`--with-deps` on Linux).
+
+**Run locally** (two shells, from `frontend/enterprise-rag-web`):
+
+1. `npm run e2e:stack` - `scripts/e2e-stack.mjs` (Node, no dependencies, Windows and Linux): if nothing listens on
+   `127.0.0.1:1433` it runs `docker compose up -d sqlserver` (creating the repo-root `.env` with a random
+   `MSSQL_SA_PASSWORD` if there is none - delete it after `docker compose down -v`) and waits for `healthy`; runs
+   `dotnet tool restore` and `dotnet ef database update` (Release) against a dedicated database **`EnterpriseRagE2e`**
+   (so your `EnterpriseRag` dev data is never touched); generates a JWT signing key and the E2E admin credentials;
+   builds and starts the API (`dotnet run -c Release --no-launch-profile` in `src/EnterpriseRag.API`,
+   `http://127.0.0.1:5180`, seed admin = the E2E admin); waits for `/health/ready` and prints `stack ready`. Ctrl+C stops
+   the API (the SQL container keeps running). Options: `--down` (also `docker compose down` on exit, volume kept),
+   `--fresh` (first `docker compose down -v`: **deletes the SQL data volume, including the dev database**, and new
+   credentials), `--ci` (no Docker; SQL must be reachable; `Database__ConnectionString` from the environment).
+2. `npm run e2e` - Playwright starts `npm start` itself (or reuses a running dev server locally), then runs every spec.
+   One file: `npm run e2e -- e2e/smoke.spec.ts`; one test: `npm run e2e -- -g "AdminStorageState"`.
+
+If the API is not ready, global setup fails within 30 s with a message telling you to run `npm run e2e:stack`.
+
+**Credentials and env vars.** No secret is committed. `e2e-stack` writes the generated credentials to the git-ignored
+`e2e/.auth/stack.env.json` (passwords are never printed) and reuses them on the next start, because the API seeds the
+admin only into an **empty** Users table: a database seeded with other credentials cannot be re-seeded. If the file is
+missing but the database already has users, the script stops and tells you to use `--fresh`. Environment variables win
+over the file:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `E2E_BASE_URL` | `http://localhost:4200` | Angular dev server (the app and, via the proxy, `/api` and `/health`) |
+| `E2E_API_URL` | `http://127.0.0.1:5180` | API, used for the readiness check (and the port `e2e-stack` binds) |
+| `E2E_ADMIN_EMAIL` | `admin@e2e.test` | seeded E2E admin |
+| `E2E_ADMIN_PASSWORD` | generated | seed password (`Seed__AdminPassword`) |
+| `E2E_ADMIN_NEW_PASSWORD` | generated | the admin's password after global setup's forced change |
+| `E2E_WORKERS` | CI 2, else Playwright default | worker override (e.g. `1` while debugging) |
+| `E2E_DB_NAME`, `E2E_SQL_HOST`, `E2E_SQL_PORT` | `EnterpriseRagE2e`, `127.0.0.1`, `1433` | `e2e-stack` only |
+| `Database__ConnectionString`, `Jwt__SigningKey` | built from `.env` / generated | `e2e-stack` passes them to migrations and the API |
+
+**Global setup** (`e2e/global-setup.ts`) waits for `/health/ready`, then makes the admin usable idempotently (signs in
+with the new password; if that is rejected, with the seeded one, and changes it), opens `/knowledge-bases` in a browser
+to prove the session restores from the refresh cookie, and saves that state to `e2e/.auth/admin.json`.
+
+**Sessions, storageState and rate limits.** The refresh cookie (`HttpOnly; Secure; SameSite=Strict; Path=/api/auth`,
+stored for `localhost`) **rotates on every use**, and presenting an already-rotated cookie revokes the whole session
+family (reuse detection). So a saved `storageState` can be used by one chain of contexts only, never by two tests in
+parallel or twice in a row; a naive "one storageState for all tests" breaks from the second test on (verified). The
+`adminPage` fixture therefore keeps one chain per worker: the first worker takes over `admin.json` (an exclusive
+`admin.claimed` marker), other workers sign in once, and after each test the rotated state is read back from the context
+for the next test (a test that signs out or fails restarts the chain with a new sign-in). All local clients share the
+API's per-IP limits: **login + password change 10/min** (shared bucket), **refresh + logout 30/min**, and every page
+load of a signed-in page costs one refresh. The API client (`e2e/support/api.ts`) waits out a 429 (`Retry-After`) and
+retries, which keeps setup correct but slow, so specs should: create few users (each `newUser()` costs 2 login permits),
+prefer reusing the creation session (`asUser(user)` uses it once without a new login), keep UI sign-ins (which cannot
+retry a 429) to a few tests in one serial file, and navigate inside the app instead of reloading.
+
+**Fixtures** (`e2e/support/fixtures.ts`): `adminPage`, `adminApi` (worker-scoped bearer client), `newUser({ role })` /
+`userFactory.create(...)` (active user: created by the admin, temp password changed via the API; unique emails
+`user-<runId>-w<worker>-<n>@e2e.test`), `asUser(user)` (signed-in page in a new context), `apiAs(user)`,
+`kbFactory.create(api, name)`. `e2e/support/console.ts` collects console errors; the only allowed one is the 401
+network log of the anonymous session-restore refresh. Tag tests that must run at phone size with `@mobile` (project
+`chromium-mobile`, Pixel 7); all others run in `chromium` (desktop).
+
+**Debugging:** `npx playwright test --ui` (watch mode, time travel), `npx playwright test --headed --workers 1`,
+`npx playwright test --debug -g "<name>"`; failing tests keep a trace and a screenshot in `test-results/`
+(`npx playwright show-trace test-results/<test>/trace.zip`); `npm run e2e:report` opens the HTML report
+(`playwright-report/`). `playwright-report/`, `test-results/` and `e2e/.auth/` are git-ignored; traces of UI sign-in
+tests contain the generated per-run passwords of throwaway users.
 
 ## Bundle and budget
 Production build (final-review fix wave): initial 547.61 kB raw / 132.31 kB transfer (main 539.57 kB + styles

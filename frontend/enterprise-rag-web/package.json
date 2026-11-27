@@ -10,8 +10,12 @@
     "test:ci": "ng test --watch=false",
     "check:unsafe": "node scripts/check-no-unsafe.mjs src",
     "test:guard": "node --test \"scripts/*.test.mjs\"",
-    "lint": "ng lint && npm run check:unsafe && npm run test:guard && npm run i18n:check",
-    "i18n:check": "node scripts/check-i18n-parity.mjs src/assets/i18n"
+    "lint": "ng lint && npm run check:unsafe && npm run test:guard && npm run i18n:check && npm run e2e:typecheck",
+    "i18n:check": "node scripts/check-i18n-parity.mjs src/assets/i18n",
+    "e2e": "playwright test",
+    "e2e:stack": "node scripts/e2e-stack.mjs",
+    "e2e:report": "playwright show-report",
+    "e2e:typecheck": "tsc -p e2e/tsconfig.json"
   },
   "private": true,
   "engines": {
@@ -35,7 +39,10 @@
     "@angular/build": "^22.3.0",
     "@angular/cli": "^22.3.0",
     "@angular/compiler-cli": "^22.3.0",
+    "@axe-core/playwright": "4.14.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.4",
     "angular-eslint": "22.8.0",
     "eslint": "^10.14.0",
     "jsdom": "^31.0.0",

@@ -42,3 +42,10 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Playwright E2E (generated per run; may contain session cookies and generated credentials)
+/e2e/.auth/
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
