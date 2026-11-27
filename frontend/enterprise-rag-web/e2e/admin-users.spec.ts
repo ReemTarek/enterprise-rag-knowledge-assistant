@@ -101,7 +101,14 @@ test.describe('admin users', () => {
     await waitForAnimations(page); // a closing dialog would animate out and be removed
     await expect(dialog, 'Escape').toBeVisible();
 
-    await page.mouse.click(5, 5); // the backdrop covers the viewport corner
+    // The click really lands on the dialog's backdrop (not on some other element in the corner).
+    expect(
+      await page.evaluate(
+        () => document.elementFromPoint(5, 5)?.classList.contains('cdk-overlay-backdrop') ?? false,
+      ),
+      'the backdrop covers the viewport corner',
+    ).toBe(true);
+    await page.mouse.click(5, 5);
     await waitForAnimations(page);
     await expect(dialog, 'backdrop click').toBeVisible();
 
@@ -118,11 +125,9 @@ test.describe('admin users', () => {
     adminPage: page,
   }) => {
     await openUsers(page);
-    await page
-      .context()
-      .grantPermissions(['clipboard-read', 'clipboard-write'], {
-        origin: new URL(page.url()).origin,
-      });
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: new URL(page.url()).origin,
+    });
     const { dialog, password } = await createUserInUi(
       page,
       uniqueEmail('ui-copy'),
@@ -134,13 +139,8 @@ test.describe('admin users', () => {
     await expect(field).toHaveAttribute('readonly', '');
 
     await dialog.getByRole('button', { name: t('en', 'common.copy') }).click();
-    const status = dialog.getByRole('status');
-    await expect(status).not.toBeEmpty();
-    const copied = (await status.innerText()).trim() === t('en', 'admin.tempPassword.copied');
-    if (!copied) {
-      await acknowledgeAndClose(dialog);
-      test.skip(true, 'The browser denied clipboard access although the permissions were granted.');
-    }
+    // Desktop Chromium with granted clipboard permissions is deterministic: a failed copy is a failure, not a skip.
+    await expect(dialog.getByRole('status')).toHaveText(t('en', 'admin.tempPassword.copied'));
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(password);
 
     await acknowledgeAndClose(dialog);

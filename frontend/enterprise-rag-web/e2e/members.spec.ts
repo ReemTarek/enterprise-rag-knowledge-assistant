@@ -63,6 +63,7 @@ test.describe('members', () => {
     kbFactory,
   }) => {
     const kb = await kbFactory.create(adminApi, 'Picker KB');
+    await directoryUser(adminApi, 'Listed'); // at least one non-member matches "e2" (even in a fresh database)
     // Fake timers (time still flows): lets the test move past the debounce window without sleeping.
     await page.clock.install();
     const queries: string[] = [];
@@ -78,14 +79,21 @@ test.describe('members', () => {
     // request awaited below, which is sent later).
     await page.clock.runFor(PICKER_DEBOUNCE_MS * 3);
 
+    // Stop the fake clock so the debounce window is measured in fake time only (no real time slips in).
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+    expect(queries, 'no query for 1 character').toEqual([]);
     const search = page.waitForRequest(isDirectory);
     await input.pressSequentially('2');
-    await page.clock.runFor(PICKER_DEBOUNCE_MS * 3);
+    expect(queries, 'nothing sent while typing').toEqual([]);
+    await page.clock.runFor(PICKER_DEBOUNCE_MS - 50);
+    expect(queries, 'nothing sent before the debounce ends').toEqual([]);
+    await page.clock.runFor(100);
     const request = await search;
+    await page.clock.resume();
 
     expect(new URL(request.url()).searchParams.get('query')).toBe('e2');
     expect(queries, 'only the 2-character query was sent, once').toEqual(['e2']);
-    // Every E2E user's email contains "e2" (@e2e.test): results are listed.
+    // Every E2E user's email contains "e2" (@e2e.test), including the one created above: results are listed.
     await expect(page.getByRole('option').first()).toBeVisible();
     expect(queries).toEqual(['e2']);
     await expectSignedIn(page);
