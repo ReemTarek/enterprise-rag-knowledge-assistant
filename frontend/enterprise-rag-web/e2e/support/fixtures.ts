@@ -20,7 +20,9 @@ export { expect };
  * one chain of contexts only, one after the other. Each worker keeps such a chain for the admin: the first worker
  * takes over the state saved by global setup (no extra login), other workers sign in once; after every test the
  * rotated state is read back from the context and handed to the next test. A test that signs out (or fails) breaks
- * the chain, and the next test signs in again. This keeps the suite far below the login limit (10/min/IP).
+ * the chain, and the next test signs in again. This keeps the number of sign-ins (and test time) low; the E2E stack
+ * (scripts/e2e-stack.mjs) raises the API's per-IP auth rate limits, so the production 10/min login limit is not what
+ * bounds the suite.
  */
 interface AdminChain {
   state: SessionState | undefined;

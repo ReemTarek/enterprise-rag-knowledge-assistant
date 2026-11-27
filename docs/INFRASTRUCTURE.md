@@ -115,7 +115,7 @@ Playwright suite: a SQL Server **service container** (`mcr.microsoft.com/mssql/s
 `docker-compose.yml`, port 1433, `sqlcmd` health check) -> `node scripts/e2e-stack.mjs --ci` (migrations into a fresh
 `EnterpriseRagE2e` database, API in Release on `127.0.0.1:5180` with `RateLimit__LoginPermitsPerMinute=1000` /
 `RateLimit__RefreshPermitsPerMinute=3000` - E2E only, production keeps 10/30) -> readiness wait (max 180 s) ->
-`npm run e2e` -> HTML report, traces/screenshots and the stack log uploaded as artifacts (7 days). The database is fresh
+`npm run e2e` -> HTML report, traces/screenshots and the stack log uploaded as artifacts (3 days; they can contain traces with the run's generated credentials). The database is fresh
 per run because the service container is ephemeral. Details and how to reproduce a CI failure: `docs/FRONTEND.md`
 "E2E tests".
 
@@ -123,9 +123,12 @@ Secrets in the `e2e` job: still no repository secrets. The JWT signing key and t
 run (`openssl rand`, `e2e-stack`) and masked with `::add-mask::` before anything could print them. The SA password is
 the exception, on purpose: GitHub service containers start before any step and cannot read step outputs or
 `$GITHUB_ENV`, so a value generated in a step cannot reach `MSSQL_SA_PASSWORD`. The workflow therefore defines a
-**CI-only throwaway** derived from the run id (`E2e-<run_id>-Strong!1`, different per run, masked in the first step).
-It is not a secret worth protecting: the container exists only for that job on that runner, is not reachable from
-outside, and holds only generated test data. Never reuse that pattern for a real server.
+**CI-only throwaway** derived from the run id (`E2e-<run_id>-Strong!1`, different per run). Because the run id is
+public, anyone can derive the value: it is **not a secret and gets no protection**. The `::add-mask::` in the job's first
+step is cosmetic only (it keeps the literal out of later log lines); the service container was already created with the
+value before any step ran. This is acceptable only because the container exists only for that job on that runner, is
+not reachable from outside, and holds only generated test data. Never reuse that pattern for a real credential or
+server: use an encrypted repository/environment secret.
 
 ## Frontend (dev)
 

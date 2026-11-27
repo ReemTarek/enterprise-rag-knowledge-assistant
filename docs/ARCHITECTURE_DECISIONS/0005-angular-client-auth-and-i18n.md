@@ -88,4 +88,5 @@ Phase 3 and must be done before any non-dev deployment**; it is not implemented 
   `docs/INFRASTRUCTURE.md`), so runs are independent; locally a dedicated `EnterpriseRagE2e` database keeps the
   developer's data untouched, and specs never rely on an empty database.
 - Consequences: the suite needs Docker (local) and takes about a minute locally (2 workers); retries are capped at 1 in
-  CI and flakes are fixed rather than hidden; one known gap is a `test.fixme` (change-password 502 message).
+  CI and flakes are fixed rather than hidden (`failOnFlakyTests` in CI: a pass on retry fails the run); no test is
+  skipped or `fixme`.

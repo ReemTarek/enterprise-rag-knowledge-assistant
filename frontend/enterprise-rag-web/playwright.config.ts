@@ -17,8 +17,11 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: ci,
   retries: ci ? 1 : 0,
-  // 2 workers everywhere on purpose: every client shares the API's per-IP rate limits (login 10/min, refresh
-  // 30/min) and each worker costs admin sign-ins. E2E_WORKERS overrides (e.g. 1 while debugging).
+  // A test that only passes on retry fails the CI run (flakiness is reported, not hidden by the retry).
+  failOnFlakyTests: ci,
+  // 2 workers by default for resource/stability reasons (one Angular dev server, one API and SQL Server share the
+  // machine/runner). The E2E stack (scripts/e2e-stack.mjs) raises the API's per-IP auth rate limits, so the
+  // production 10/30-per-minute limits are not the constraint. E2E_WORKERS overrides (e.g. 1 while debugging).
   workers: Number(process.env['E2E_WORKERS'] || 2),
   // Generous because test-data setup waits out a 429 window (Retry-After) instead of failing.
   timeout: 90_000,

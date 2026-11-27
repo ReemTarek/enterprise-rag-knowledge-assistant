@@ -19,16 +19,18 @@ Phase 2a (backend) is merged on main; Phase 1 was completed earlier.
   "Something went wrong" (now the network/unreachable message); A11y-1 toolbar outside a landmark.
 - **D6 deferred** (browser Back while the temporary-password dialog is open changes the page behind it; the dialog stays
   by design, harmless) - documented in FRONTEND.md "Known limitations".
-- **Known gap:** change-password still shows the generic message for a gateway 502 without body (the page picks the
-  network message by `status !== 0`); covered by `D8_ChangePassword_GatewayError_ShowsNetworkMessage` as `test.fixme`.
+- D8 also on the change-password page (final review fix): it now picks the message from the error type
+  (`messageKeyFor`), so a gateway 502/503/504 without ProblemDetails shows the network message; unit-tested and covered
+  by the E2E test `D8_ChangePassword_GatewayError_ShowsNetworkMessage` (no longer `test.fixme`).
 - Configurable auth rate limits (`RateLimit:LoginPermitsPerMinute` default 10, `RateLimit:RefreshPermitsPerMinute`
   default 30, validated; production behaviour unchanged); only the E2E stack raises them (1000/3000) because every client
   of the suite shares one IP.
 - E2E suite (`frontend/enterprise-rag-web/e2e`, `@playwright/test` + `@axe-core/playwright`): 56 tests in 8 files
-  (smoke 5, auth 7, session 6, i18n-rtl 7, a11y 7, knowledge-bases 9, members 7, admin-users 8); 55 run + 1 fixme.
-  Local runs: 55 passed / 1 skipped in about 57 s (2 workers).
+  (smoke 5, auth 7, session 6, i18n-rtl 7, a11y 7, knowledge-bases 9, members 7, admin-users 8); all 56 run (no
+  fixme/skip). Local runs: 56 passed (2 workers). CI fails on flaky tests (`failOnFlakyTests`).
 - CI: new job `e2e` ("End-to-end (Playwright)") after `build-test` and `frontend`: SQL Server service container,
-  `e2e-stack --ci`, readiness wait, `npm run e2e`, artifacts (report, traces, stack log; 7 days); fresh database per
+  `e2e-stack --ci`, readiness wait, `npm run e2e`, artifacts (report, traces, stack log; 3 days - both Playwright artifacts can contain
+  traces with the run's generated credentials); `concurrency` cancels superseded non-main runs; fresh database per
   run; no repository secrets (generated + masked; SA password is a CI-only throwaway, see INFRASTRUCTURE.md).
 - CI runs: https://github.com/ReemTarek/enterprise-rag-knowledge-assistant/actions/runs/46033634808 (84ddf31): e2e failed
   before the suite - `dotnet ef` NETSDK1004 on a fresh clone (no restore), reproduced locally and fixed in a630dd4;
@@ -214,7 +216,7 @@ Plan items for Phase 2b/3 (from the final review):
 ## Known issues
 Phase 2b (client; deferred minor findings from per-task reviews, grouped by task):
 - Overall: the UI click-through is now automated by the E2E suite (screen-reader speech is approximated by axe and
-  accessible-name locators, not verified); D6 deferred and the change-password 502 message gap (`test.fixme`); Arabic and
+  accessible-name locators, not verified); D6 deferred; Arabic and
   German texts have no native-speaker review; `Retry-After` is not surfaced (generic 429 text); leaving a knowledge base
   and admin assign-owner do not exist server-side (I6, M9 above; plan with Phase 3); CSP not applied and fonts still
   from Google (decided: self-host as the first Phase 3 task); sign-out while the API is unreachable leaves the refresh
@@ -258,7 +260,8 @@ Deferred Phase 1 findings (unchanged):
 - T6: sync SaveChanges untested.
 - T7: assorted test naming/coverage nits; no Serilog bootstrap logger; no comment on version pins; no Swagger-in-Development test.
 - T8: readiness check has no explicit timeout (~15 s when the DB is down); "ready" tag literal duplicated; each HealthTests instance starts its own container.
-- T9: ci.yml has no timeout-minutes/concurrency; double runs on push + PR; bare `dotnet restore/test`.
+- T9: double runs on push + PR; bare `dotnet restore/test` (timeout-minutes on the frontend/e2e jobs and a
+  `concurrency` group were added in Phase 2b hardening).
 
 Known issues from the Phase 2a final review (deferred, documented in SECURITY.md):
 - I5: lost update on the failed-login counter under concurrency - Phase 11. Do NOT add a rowversion to `User` (it
@@ -290,7 +293,7 @@ Deferred Phase 2a findings (from per-task reviews; items fixed in the final wave
   takes about 3.3 minutes.
 
 ## Failing tests/outstanding validation
-- None failing (one `test.fixme` E2E test documents the change-password 502 gap). Not yet validated: embedding model
+- None failing; no skipped or fixme E2E tests. Not yet validated: embedding model
   choice (Phase 4); native-speaker review of Arabic/German.
 
 ## Next task

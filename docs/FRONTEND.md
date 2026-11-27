@@ -233,7 +233,8 @@ network log of the anonymous session-restore refresh. Tag tests that must run at
 `npx playwright test --debug -g "<name>"`; failing tests keep a trace and a screenshot in `test-results/`
 (`npx playwright show-trace test-results/<test>/trace.zip`); `npm run e2e:report` opens the HTML report
 (`playwright-report/`). `playwright-report/`, `test-results/` and `e2e/.auth/` are git-ignored; traces of UI sign-in
-tests contain the generated per-run passwords of throwaway users.
+tests contain the generated per-run passwords of throwaway users. In CI, `failOnFlakyTests` is on: a test that only
+passes on its retry fails the run.
 
 **CI job `e2e` ("End-to-end (Playwright)", `.github/workflows/ci.yml`).** Runs after `build-test` and `frontend`
 succeed, on `ubuntu-latest`, 30-minute timeout: a SQL Server service container (same image tag as `docker-compose.yml`,
@@ -245,9 +246,14 @@ every CI run** (the service container is ephemeral), so users and knowledge base
 generated with `openssl rand` and masked; the admin passwords are masked (`::add-mask::`) as soon as the file exists;
 nothing prints them. Chromium is cached (`~/.cache/ms-playwright`, keyed on the locked `@playwright/test` version).
 
-Artifacts (always uploaded, kept 7 days, on the run's summary page): `playwright-report` (HTML report: download, unzip,
+Artifacts (always uploaded, kept 3 days, on the run's summary page): `playwright-report` (HTML report: download, unzip,
 `npx playwright show-report <folder>`), `playwright-test-results` (traces and screenshots of failed tests:
-`npx playwright show-trace <test>/trace.zip`) and `e2e-stack-log` (migrations and API output).
+`npx playwright show-trace <test>/trace.zip`) and `e2e-stack-log` (migrations and API output). **Both
+`playwright-report` and `playwright-test-results` can contain traces of failed tests, including network data**
+(request/response bodies and headers: the generated, single-use E2E passwords and access/refresh tokens of that run's
+ephemeral stack). Low risk, because these credentials exist only for that run's throwaway database, but treat the
+artifacts as sensitive and do not attach them to public issues; hence the short retention. A newer push to the same
+branch or PR cancels the older CI run (`concurrency`); runs on `main` are never cancelled.
 
 **Reproducing a CI failure locally.** First rerun the same spec on a fresh database: `npm run e2e:stack -- --fresh`
 (deletes the Compose SQL volume, see above), then `CI=true npm run e2e -- e2e/<file>.spec.ts` (CI mode = retries 1,
@@ -341,8 +347,6 @@ so pass it by hand (`-H "Cookie: refresh_token=..."`).
   approximated (axe scans and accessible-name locators). The manual checklist below stays for visual review.
 - D6 (deferred): pressing browser Back while the one-time temporary-password dialog is open changes the route behind
   it; the dialog stays open on purpose (`closeOnNavigation: false`), so the password cannot be lost unseen. Harmless.
-- Change-password shows the generic message (not the network one) when a gateway answers 502/503/504 without a
-  ProblemDetails body; documented by the `test.fixme` `D8_ChangePassword_GatewayError_ShowsNetworkMessage`.
 - The deferred per-task review items are listed in `docs/PROJECT_PROGRESS.md`.
 
 ## User manual checklist (visual verification)

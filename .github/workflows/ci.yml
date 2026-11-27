@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch/PR cancels the older run (the E2E job is the expensive part); runs on main are
+# never cancelled so every main commit keeps a complete result.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   build-test:
     name: Backend build and test
@@ -69,10 +75,12 @@ jobs:
     needs: [build-test, frontend]
     timeout-minutes: 30
     env:
-      # CI-only THROWAWAY SA password, not a secret: the SQL container exists only for this job, listens only on the
-      # runner and holds only generated test data. Service containers cannot read step outputs/$GITHUB_ENV, so a
-      # value generated in a step cannot reach MSSQL_SA_PASSWORD; it is derived from the run id instead (differs per
-      # run) and masked in the first step. Keep it identical to services.sqlserver.env.MSSQL_SA_PASSWORD below.
+      # CI-only THROWAWAY SA password, NOT a secret and not secret-grade: it is derivable from the public run id. That
+      # is acceptable only because the SQL container exists only for this job, listens only on the runner and holds
+      # only generated test data. Service containers are created before any step runs and cannot read step outputs or
+      # $GITHUB_ENV, so a value generated in a step cannot reach MSSQL_SA_PASSWORD. The ::add-mask:: in the first step
+      # is cosmetic (it only keeps the value out of later log lines); it protects nothing. Do NOT copy this pattern
+      # for a real credential: use an encrypted secret. Keep it identical to services.sqlserver.env.MSSQL_SA_PASSWORD.
       CI_SA_PASSWORD: E2e-${{ github.run_id }}-Strong!1
       E2E_API_URL: http://127.0.0.1:5180
       E2E_DB_NAME: EnterpriseRagE2e
@@ -176,13 +184,15 @@ jobs:
           CI: "true"
         run: npm run e2e
 
+      # Both Playwright artifacts can contain traces of failed tests, including network data (generated, single-use
+      # E2E passwords/tokens of this ephemeral stack): short retention on purpose.
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: frontend/enterprise-rag-web/playwright-report/
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: ignore
 
       - name: Upload test results (traces, screenshots)
@@ -191,7 +201,7 @@ jobs:
         with:
           name: playwright-test-results
           path: frontend/enterprise-rag-web/test-results/
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: ignore
 
       - name: Stop the stack
@@ -209,5 +219,5 @@ jobs:
         with:
           name: e2e-stack-log
           path: frontend/enterprise-rag-web/e2e-stack.log
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: ignore
