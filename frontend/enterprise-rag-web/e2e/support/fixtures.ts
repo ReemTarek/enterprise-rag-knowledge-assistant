@@ -8,6 +8,7 @@ import {
 } from '@playwright/test';
 import { closeSync, existsSync, openSync, readFileSync } from 'node:fs';
 import { ApiClient, GlobalRole, KnowledgeBase } from './api';
+import { uniqueSuffix } from './unique';
 import { ADMIN_STATE_CLAIM_FILE, ADMIN_STATE_FILE, loadEnv } from './env';
 import { ActiveUser, SessionState, UserCredentials, createActiveUser, newApiClient } from './users';
 
@@ -113,6 +114,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       const env = loadEnv();
       const api = await newApiClient();
       await api.login(env.adminEmail, env.adminNewPassword);
+      // Worker-scoped: the 15-minute access token can expire during a long run; re-login once on 401.
+      api.reloginOn401(env.adminEmail, env.adminNewPassword);
       await use(api);
       await api.request.dispose();
     },
@@ -128,6 +131,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     adminChain.state = undefined; // in use: only this context may present the cookie now
     const page = await context.newPage();
     await use(page);
+    // Let in-flight requests settle first: a refresh still on the wire would rotate the cookie after we read it,
+    // leaving a stale (already revoked) cookie for the next test. Bounded; a page that never idles just moves on.
+    for (const p of context.pages()) {
+      await p.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+    }
     // Hand the rotated cookie to the next test, unless the session is gone (signed out) or the test failed mid-way.
     const passed = testInfo.status === testInfo.expectedStatus;
     const state = await context.storageState();
@@ -175,14 +183,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   // eslint-disable-next-line no-empty-pattern
   kbFactory: async ({}, use) => {
-    let n = 0;
     await use({
       create: (api, name = 'KB', options = {}) => {
-        n += 1;
-        const { runId } = loadEnv();
-        const finalName = options.exact
-          ? name
-          : `${name} ${runId}-${process.env['TEST_PARALLEL_INDEX'] ?? '0'}-${n}`;
+        // Module-level counter + worker index + random bytes (unique.ts): unique across tests and worker restarts.
+        const finalName = options.exact ? name : `${name} ${uniqueSuffix()}`;
         return api.createKb({ name: finalName, description: options.description });
       },
     });

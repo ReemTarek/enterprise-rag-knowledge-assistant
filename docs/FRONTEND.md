@@ -143,7 +143,7 @@ user was not found.
   dialogs that must not be dismissable are pinned (the Escape key is dispatched on `body`, where CDK listens).
 - `npm run lint` - `ng lint` (angular-eslint), `check:unsafe` (bans `innerHTML`, `bypassSecurityTrust*`, `eval(`, tokens
   or passwords in web storage), `test:guard` (`node --test scripts`: 6 unsafe-guard tests + 4 i18n-parity tests +
-  2 problem-type drift tests), `i18n:check`.
+  2 problem-type drift tests + 2 E2E unique-name tests), `i18n:check`.
 - `npm run build` - production build. `npm audit --omit=dev --audit-level=high` should report no high issues.
 - CI job `frontend` (`.github/workflows/ci.yml`) runs `npm ci`, lint, test:ci, build on Node 24.x. **It has not run on
   GitHub yet.**
@@ -162,8 +162,10 @@ server with the same-origin proxy. Nothing is mocked for the main flows; test da
 **Run locally** (two shells, from `frontend/enterprise-rag-web`):
 
 1. `npm run e2e:stack` - `scripts/e2e-stack.mjs` (Node, no dependencies, Windows and Linux): if nothing listens on
-   `127.0.0.1:1433` it runs `docker compose up -d sqlserver` (creating the repo-root `.env` with a random
-   `MSSQL_SA_PASSWORD` if there is none - delete it after `docker compose down -v`) and waits for `healthy`; runs
+   `127.0.0.1:1433` it runs `docker compose up -d sqlserver` (only in that case, when the repo-root `.env` is
+   missing, it creates one with a random `MSSQL_SA_PASSWORD` - delete it after `docker compose down -v`; if a SQL Server
+   already runs and neither `.env` nor `Database__ConnectionString` gives its credentials, the script stops and says how
+   to provide them) and waits for `healthy`; runs
    `dotnet tool restore` and `dotnet ef database update` (Release) against a dedicated database **`EnterpriseRagE2e`**
    (so your `EnterpriseRag` dev data is never touched); generates a JWT signing key and the E2E admin credentials;
    builds and starts the API (`dotnet run -c Release --no-launch-profile` in `src/EnterpriseRag.API`,
@@ -189,7 +191,7 @@ over the file:
 | `E2E_ADMIN_EMAIL` | `admin@e2e.test` | seeded E2E admin |
 | `E2E_ADMIN_PASSWORD` | generated | seed password (`Seed__AdminPassword`) |
 | `E2E_ADMIN_NEW_PASSWORD` | generated | the admin's password after global setup's forced change |
-| `E2E_WORKERS` | CI 2, else Playwright default | worker override (e.g. `1` while debugging) |
+| `E2E_WORKERS` | `2` (local and CI) | worker override (e.g. `1` while debugging); kept low for the rate limits |
 | `E2E_DB_NAME`, `E2E_SQL_HOST`, `E2E_SQL_PORT` | `EnterpriseRagE2e`, `127.0.0.1`, `1433` | `e2e-stack` only |
 | `Database__ConnectionString`, `Jwt__SigningKey` | built from `.env` / generated | `e2e-stack` passes them to migrations and the API |
 
@@ -203,16 +205,23 @@ family (reuse detection). So a saved `storageState` can be used by one chain of 
 parallel or twice in a row; a naive "one storageState for all tests" breaks from the second test on (verified). The
 `adminPage` fixture therefore keeps one chain per worker: the first worker takes over `admin.json` (an exclusive
 `admin.claimed` marker), other workers sign in once, and after each test the rotated state is read back from the context
-for the next test (a test that signs out or fails restarts the chain with a new sign-in). All local clients share the
+for the next test, after in-flight requests settled (`networkidle`, max 5 s) so a refresh still on the wire cannot leave a
+stale cookie (a test that signs out or fails restarts the chain with a new sign-in). **Rules for `adminPage` tests:**
+end on an authenticated assertion (the page is signed in when the test ends), and never revoke the admin's own sessions
+(no sign-out of the admin in a way other tests rely on, no reset/deactivate/password change of the E2E admin) - a test
+that needs that must use its own user from `newUser()`. All local clients share the
 API's per-IP limits: **login + password change 10/min** (shared bucket), **refresh + logout 30/min**, and every page
 load of a signed-in page costs one refresh. The API client (`e2e/support/api.ts`) waits out a 429 (`Retry-After`) and
 retries, which keeps setup correct but slow, so specs should: create few users (each `newUser()` costs 2 login permits),
 prefer reusing the creation session (`asUser(user)` uses it once without a new login), keep UI sign-ins (which cannot
 retry a 429) to a few tests in one serial file, and navigate inside the app instead of reloading.
 
-**Fixtures** (`e2e/support/fixtures.ts`): `adminPage`, `adminApi` (worker-scoped bearer client), `newUser({ role })` /
+**Fixtures** (`e2e/support/fixtures.ts`): `adminPage`, `adminApi` (worker-scoped bearer client; on a 401 from
+an expired 15-minute access token it signs in again once and repeats the call), `newUser({ role })` /
 `userFactory.create(...)` (active user: created by the admin, temp password changed via the API; unique emails
-`user-<runId>-w<worker>-<n>@e2e.test`), `asUser(user)` (signed-in page in a new context), `apiAs(user)`,
+`user-<runId>-w<workerIndex>-<n>-<random>@e2e.test`; `kbFactory` names use the same suffix, from
+`e2e/support/unique.ts`: the worker index is unique per worker process and the random part guards the counter, which
+restarts when Playwright replaces a worker after a failure or retry; checked by `scripts/e2e-unique.test.mjs`), `asUser(user)` (signed-in page in a new context), `apiAs(user)`,
 `kbFactory.create(api, name)`. `e2e/support/console.ts` collects console errors; the only allowed one is the 401
 network log of the anonymous session-restore refresh. Tag tests that must run at phone size with `@mobile` (project
 `chromium-mobile`, Pixel 7); all others run in `chromium` (desktop).

@@ -17,9 +17,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: ci,
   retries: ci ? 1 : 0,
-  // Few workers on purpose: every client shares the API's per-IP rate limits (login 10/min, refresh 30/min).
-  // E2E_WORKERS overrides (e.g. 1 to debug, or to stay further below the limits on a fast machine).
-  workers: process.env['E2E_WORKERS'] ? Number(process.env['E2E_WORKERS']) : ci ? 2 : undefined,
+  // 2 workers everywhere on purpose: every client shares the API's per-IP rate limits (login 10/min, refresh
+  // 30/min) and each worker costs admin sign-ins. E2E_WORKERS overrides (e.g. 1 while debugging).
+  workers: Number(process.env['E2E_WORKERS'] || 2),
   // Generous because test-data setup waits out a 429 window (Retry-After) instead of failing.
   timeout: 90_000,
   expect: { timeout: 10_000 },

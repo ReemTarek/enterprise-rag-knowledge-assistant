@@ -2,6 +2,7 @@ import { request } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { ApiClient, GlobalRole } from './api';
 import { loadEnv } from './env';
+import { uniqueSuffix } from './unique';
 
 /** Storage state of a signed-in session (the refresh cookie for the proxy origin). */
 export type SessionState = Awaited<ReturnType<ApiClient['request']['storageState']>>;
@@ -19,14 +20,9 @@ export interface ActiveUser extends UserCredentials {
   readonly session: SessionState;
 }
 
-let counter = 0;
-
-/** `e2e-<runId>-<worker>-<n>@e2e.test`: unique per run, per worker and per call. */
+/** `<prefix>-<runId>-w<workerIndex>-<n>-<random>@e2e.test`: unique across worker restarts (see unique.ts). */
 export function uniqueEmail(prefix = 'e2e'): string {
-  const { runId } = loadEnv();
-  const worker = process.env['TEST_PARALLEL_INDEX'] ?? '0';
-  counter += 1;
-  return `${prefix}-${runId}-w${worker}-${counter}@e2e.test`.toLowerCase();
+  return `${prefix}-${uniqueSuffix()}@e2e.test`.toLowerCase();
 }
 
 /** Strong random password that satisfies the policy (length >= 12, upper, lower, digit). */

@@ -68,7 +68,18 @@ const MAX_429_RETRIES = 3;
 export class ApiClient {
   private accessToken: string | null = null;
 
+  /** Credentials for one automatic re-login when a bearer call answers 401 (expired access token). */
+  private relogin: { email: string; password: string } | null = null;
+
   constructor(readonly request: APIRequestContext) {}
+
+  /**
+   * For long-lived (worker-scoped) clients: on a 401 from an authenticated call, sign in again ONCE and repeat the
+   * call. A second 401 is returned as is (no loop).
+   */
+  reloginOn401(email: string, password: string): void {
+    this.relogin = { email, password };
+  }
 
   get token(): string | null {
     return this.accessToken;
@@ -225,6 +236,13 @@ export class ApiClient {
   }
 
   private async send(method: string, url: string, opts: SendOptions): Promise<APIResponse> {
+    const res = await this.sendOnce(method, url, opts);
+    if (res.status() !== 401 || opts.auth === false || !this.relogin) return res;
+    await this.login(this.relogin.email, this.relogin.password);
+    return this.sendOnce(method, url, opts);
+  }
+
+  private async sendOnce(method: string, url: string, opts: SendOptions): Promise<APIResponse> {
     const headers: Record<string, string> = { ...opts.headers };
     if (opts.auth !== false) {
       if (!this.accessToken) throw new Error(`${method} ${url}: not signed in (call login first).`);

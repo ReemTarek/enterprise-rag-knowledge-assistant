@@ -181,29 +181,36 @@ async function ensureSql() {
     rmSync(stackEnvFile, { force: true });
   }
 
-  if (!existsSync(dotEnvFile)) {
-    if (process.env.Database__ConnectionString) {
-      // The developer runs their own SQL Server and passes the connection string.
-    } else {
-      writeFileSync(dotEnvFile, `MSSQL_SA_PASSWORD=${strongPassword()}\n`, { mode: 0o600 });
-      log(
-        `Created ${dotEnvFile} with a generated MSSQL_SA_PASSWORD (git-ignored; delete it after \`docker compose down -v\`).`,
-      );
-    }
-  }
-  const saPassword = readDotEnv().MSSQL_SA_PASSWORD || null;
-
+  let saPassword = readDotEnv().MSSQL_SA_PASSWORD || null;
   if (!(await tcpReachable(sqlHost, sqlPort))) {
     if (!docker)
       fail(
         `SQL Server is not reachable on ${sqlHost}:${sqlPort} and Docker is not available. Start Docker Desktop.`,
       );
+    // Only here (the Compose container is about to be created) may a missing .env be generated: the password must
+    // be the one the new container is initialised with, never a guess for a server that already runs.
+    if (!existsSync(dotEnvFile)) {
+      writeFileSync(dotEnvFile, `MSSQL_SA_PASSWORD=${strongPassword()}\n`, { mode: 0o600 });
+      log(
+        `Created ${dotEnvFile} with a generated MSSQL_SA_PASSWORD (git-ignored; delete it after \`docker compose down -v\`).`,
+      );
+      saPassword = readDotEnv().MSSQL_SA_PASSWORD || null;
+    }
     if (!saPassword) fail(`MSSQL_SA_PASSWORD missing in ${dotEnvFile}.`);
     log('Starting SQL Server (docker compose up -d sqlserver)...');
     if (!run('docker', ['compose', 'up', '-d', 'sqlserver']).ok)
       fail('docker compose up -d sqlserver failed.');
   } else {
     log(`SQL Server reachable on ${sqlHost}:${sqlPort}.`);
+    if (!saPassword && !process.env.Database__ConnectionString) {
+      fail(
+        `SQL Server already runs on ${sqlHost}:${sqlPort}, but its credentials are unknown (no MSSQL_SA_PASSWORD ` +
+          `in ${dotEnvFile} and no Database__ConnectionString). Export Database__ConnectionString, e.g. ` +
+          `"Server=${sqlHost},${sqlPort};Database=${dbName};User Id=<user>;Password=<password>;TrustServerCertificate=True", ` +
+          "or put that server's SA password into .env as MSSQL_SA_PASSWORD=..., or stop that server so this script " +
+          'can start the Compose one.',
+      );
+    }
   }
   if (docker && sqlContainerId()) await waitForSqlHealthy();
 
