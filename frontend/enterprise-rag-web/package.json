@@ -9,7 +9,7 @@
     "test": "ng test",
     "test:ci": "ng test --watch=false",
     "check:unsafe": "node scripts/check-no-unsafe.mjs src",
-    "test:guard": "node --test scripts",
+    "test:guard": "node --test \"scripts/*.test.mjs\"",
     "lint": "ng lint && npm run check:unsafe && npm run test:guard && npm run i18n:check",
     "i18n:check": "node scripts/check-i18n-parity.mjs src/assets/i18n"
   },
