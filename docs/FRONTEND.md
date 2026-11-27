@@ -191,9 +191,10 @@ over the file:
 | `E2E_ADMIN_EMAIL` | `admin@e2e.test` | seeded E2E admin |
 | `E2E_ADMIN_PASSWORD` | generated | seed password (`Seed__AdminPassword`) |
 | `E2E_ADMIN_NEW_PASSWORD` | generated | the admin's password after global setup's forced change |
-| `E2E_WORKERS` | `2` (local and CI) | worker override (e.g. `1` while debugging); kept low for the rate limits |
+| `E2E_WORKERS` | `2` (local and CI) | worker override (e.g. `1` while debugging) |
 | `E2E_DB_NAME`, `E2E_SQL_HOST`, `E2E_SQL_PORT` | `EnterpriseRagE2e`, `127.0.0.1`, `1433` | `e2e-stack` only |
 | `Database__ConnectionString`, `Jwt__SigningKey` | built from `.env` / generated | `e2e-stack` passes them to migrations and the API |
+| `RateLimit__LoginPermitsPerMinute`, `RateLimit__RefreshPermitsPerMinute` | `1000`, `3000` | `e2e-stack` passes them to the API (E2E only; production defaults 10 and 30) |
 
 **Global setup** (`e2e/global-setup.ts`) waits for `/health/ready`, then makes the admin usable idempotently (signs in
 with the new password; if that is rejected, with the seeded one, and changes it), opens `/knowledge-bases` in a browser
@@ -209,12 +210,14 @@ for the next test, after in-flight requests settled (`networkidle`, max 5 s) so 
 stale cookie (a test that signs out or fails restarts the chain with a new sign-in). **Rules for `adminPage` tests:**
 end on an authenticated assertion (the page is signed in when the test ends), and never revoke the admin's own sessions
 (no sign-out of the admin in a way other tests rely on, no reset/deactivate/password change of the E2E admin) - a test
-that needs that must use its own user from `newUser()`. All local clients share the
-API's per-IP limits: **login + password change 10/min** (shared bucket), **refresh + logout 30/min**, and every page
-load of a signed-in page costs one refresh. The API client (`e2e/support/api.ts`) waits out a 429 (`Retry-After`) and
-retries, which keeps setup correct but slow, so specs should: create few users (each `newUser()` costs 2 login permits),
-prefer reusing the creation session (`asUser(user)` uses it once without a new login), keep UI sign-ins (which cannot
-retry a 429) to a few tests in one serial file, and navigate inside the app instead of reloading.
+that needs that must use its own user from `newUser()`. **Rate limits:** every local client of the suite shares one
+IP, so the production per-IP limits (login + password change 10/min, refresh + logout 30/min; every page load costs one
+refresh) would throttle the suite itself (a run spends about 12 login-bucket permits and 30+ refreshes). `e2e-stack`
+therefore starts the API with `RateLimit__LoginPermitsPerMinute=1000` and `RateLimit__RefreshPermitsPerMinute=3000`
+(a CI job that starts the API itself must set the same; **production keeps the defaults**, docs/SECURITY.md). The API
+client (`e2e/support/api.ts`) still waits out a 429 (`Retry-After`) as a safety net. Specs should still create few users
+(`newUser()` costs 2 logins), reuse the creation session (`asUser(user)`), keep UI sign-ins in one serial file, and
+navigate inside the app instead of reloading (speed).
 
 **Fixtures** (`e2e/support/fixtures.ts`): `adminPage`, `adminApi` (worker-scoped bearer client; on a 401 from
 an expired 15-minute access token it signs in again once and repeats the call), `newUser({ role })` /

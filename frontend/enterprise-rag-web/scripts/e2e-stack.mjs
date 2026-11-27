@@ -7,6 +7,9 @@
 //   npm run e2e:stack -- --fresh      drop the SQL data volume first (docker compose down -v) and new credentials
 //   npm run e2e:stack -- --ci         CI: no Docker; SQL must be reachable; Database__ConnectionString from env
 //
+// The API it starts gets RateLimit__LoginPermitsPerMinute=1000 and RateLimit__RefreshPermitsPerMinute=3000 (the whole
+// suite shares one client IP). A CI job that starts the API by itself must set the same two variables.
+//
 // Secrets (SA password, JWT key, E2E admin passwords) are generated per machine/run and never printed. The E2E
 // credentials go to the git-ignored e2e/.auth/stack.env.json so the Playwright run can read them.
 // No dependencies: Node built-ins only; works on Windows and Linux.
@@ -314,6 +317,11 @@ async function main() {
     Jwt__SigningKey: process.env.Jwt__SigningKey || randomBytes(48).toString('base64'),
     Seed__AdminEmail: creds.adminEmail,
     Seed__AdminPassword: creds.adminPassword,
+    // E2E only: every browser, worker and API helper of the suite shares ONE client IP, so the production per-IP limits
+    // (login 10/min, refresh 30/min) would throttle the suite itself. Raised here (local and --ci); production keeps
+    // the defaults (docs/SECURITY.md). Environment values win.
+    RateLimit__LoginPermitsPerMinute: process.env.RateLimit__LoginPermitsPerMinute || '1000',
+    RateLimit__RefreshPermitsPerMinute: process.env.RateLimit__RefreshPermitsPerMinute || '3000',
   };
   log(
     `Building and starting the API in Release on ${apiUrl} (dotnet run -c Release --no-launch-profile)...`,

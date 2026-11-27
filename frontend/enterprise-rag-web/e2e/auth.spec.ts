@@ -1,17 +1,23 @@
 /**
  * Sign-in and the forced password change, driven through the real UI against the real API.
  *
- * LOGIN BUDGET (docs/FRONTEND.md "E2E tests"): login + password change share 10 permits/min/IP across the WHOLE suite,
- * and a UI submit cannot retry on its own. This is the ONLY spec file that signs in through the UI, and it does so
- * serially in ONE browser context shared by its tests:
- *   1. wrong password (401)             -> 1 login permit
- *   2. temporary password (forced flow) -> 1 login permit
- *   3. valid password change            -> 1 login-bucket permit
- * = 3 UI submits per run (limit for this file: 8). The test user is created by the admin API (no login permit: it
- * keeps its temporary password). `submitAuthForm` waits out a 429 (Retry-After) and resubmits; each submit and each
- * wait is logged as `[e2e-budget] ...`. Page loads cost refresh permits (30/min/IP): 5 here.
+ * LOGIN BUDGET (docs/FRONTEND.md "E2E tests"). The API limits login + password change per client IP, and every client
+ * of the suite shares one IP. Run-wide, a full run spends about 13 login-bucket permits: global setup 1, `adminApi` 1
+ * per worker (2 desktop + 1 mobile), the `adminPage` sign-in of every worker that does not take over the global-setup
+ * state (desktop 1 + mobile 1), `newUser()` 2 each (2 in session.spec = 4) and the 3 UI submits of THIS file (a worker
+ * replaced after a failure signs in again). That exceeds the production 10/min, so the E2E stack starts the API with
+ * `RateLimit__LoginPermitsPerMinute=1000` / `RateLimit__RefreshPermitsPerMinute=3000` (scripts/e2e-stack.mjs;
+ * production keeps 10 and 30) and nothing here waits out a 429.
+ *
+ * This is the ONLY spec file that signs in through the UI, serially in ONE browser context shared by its tests:
+ *   1. wrong password (401)             -> 1 login
+ *   2. temporary password (forced flow) -> 1 login
+ *   3. valid password change            -> 1 password change (login bucket)
+ * = 3 UI submits per run (limit for this file: 8), each logged as `[e2e-budget] ui-login`. The test user is created
+ * by the admin API and keeps its temporary password (no login of its own).
  */
 import { BrowserContext, Page, Request } from '@playwright/test';
+import { expectNoSeriousViolations } from './support/axe';
 import { expect, test } from './support/fixtures';
 import { UserCredentials, createPendingUser, strongPassword } from './support/users';
 import {
@@ -55,11 +61,10 @@ test.describe('auth (UI sign-in, forced password change)', () => {
     requests.filter((r) => r.method() === 'POST' && new URL(r.url()).pathname === path).length;
 
   test('Login_WrongPassword_ShowsGenericMessage_ClearsPasswordKeepsEmail', async () => {
-    const testInfo = test.info();
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: t('en', 'login.heading') })).toBeVisible();
 
-    const res = await submitAuthForm(page, testInfo, {
+    const res = await submitAuthForm(page, {
       path: '/api/auth/login',
       fill: async () => {
         await field(t('en', 'login.email')).fill(user.email);
@@ -78,8 +83,7 @@ test.describe('auth (UI sign-in, forced password change)', () => {
   });
 
   test('Login_TemporaryPassword_ForcesChangePassword_WithBannerAndNoNavigation', async () => {
-    const testInfo = test.info();
-    const res = await submitAuthForm(page, testInfo, {
+    const res = await submitAuthForm(page, {
       path: '/api/auth/login',
       fill: async () => {
         await field(t('en', 'login.email')).fill(user.email);
@@ -100,6 +104,18 @@ test.describe('auth (UI sign-in, forced password change)', () => {
     await expect(page.getByRole('link', { name: t('en', 'nav.administration') })).toHaveCount(0);
     await expect(page.getByRole('button', { name: t('en', 'language.switch') })).toBeVisible();
     await expect(page.getByRole('button', { name: t('en', 'user.menu') })).toBeVisible();
+  });
+
+  test('Axe_ForcedChangePassword_NoSeriousOrCriticalViolations_EnglishAndArabic', async () => {
+    // The forced state (banner, no navigation) only exists for a user who must change the password: scanned here.
+    await expect(page.getByText(t('en', 'changePassword.banner'))).toBeVisible();
+    await expectNoSeriousViolations(page, 'forced change password (en)');
+
+    await switchLanguage(page, 'en', 'ar');
+    await expect(page.getByText(t('ar', 'changePassword.banner'))).toBeVisible();
+    await expect(page.getByRole('navigation')).toHaveCount(0);
+    await expectNoSeriousViolations(page, 'forced change password (ar)');
+    await switchLanguage(page, 'ar', 'en');
   });
 
   test('D1_ChangePassword_HintDoesNotOverlapConfirmField_InEnglishGermanArabic', async () => {
@@ -135,9 +151,8 @@ test.describe('auth (UI sign-in, forced password change)', () => {
   });
 
   test('ForcedChange_DirectUrls_AllEndAtChangePassword', async () => {
-    const testInfo = test.info();
     for (const path of ['/knowledge-bases', '/admin/users', '/settings']) {
-      await gotoSignedIn(page, path, testInfo);
+      await gotoSignedIn(page, path);
       await expect(page, `${path} is blocked`).toHaveURL(
         `/change-password?returnUrl=${encodeURIComponent(path)}`,
       );
@@ -171,8 +186,7 @@ test.describe('auth (UI sign-in, forced password change)', () => {
   });
 
   test('ChangePassword_Valid_GoesHome_InTheSameSession_AndSurvivesReload', async () => {
-    const testInfo = test.info();
-    await gotoSignedIn(page, '/change-password', testInfo);
+    await gotoSignedIn(page, '/change-password');
     await expect(page.getByText(t('en', 'changePassword.banner'))).toBeVisible();
     const loginsBefore = authCalls('/api/auth/login');
     const loginUrls: string[] = [];
@@ -181,7 +195,7 @@ test.describe('auth (UI sign-in, forced password change)', () => {
     });
     const newPassword = strongPassword();
 
-    const res = await submitAuthForm(page, testInfo, {
+    const res = await submitAuthForm(page, {
       path: '/api/auth/password',
       fill: async () => {
         await field(t('en', 'changePassword.current')).fill(user.password);
@@ -197,7 +211,7 @@ test.describe('auth (UI sign-in, forced password change)', () => {
     await expect(page.getByRole('navigation', { name: t('en', 'nav.main') })).toBeVisible();
 
     // The refresh cookie of this session still works: a reload restores it without the login page.
-    await reloadSignedIn(page, testInfo);
+    await reloadSignedIn(page);
     await expect(page.getByRole('heading', { level: 1, name: t('en', 'kb.title') })).toBeVisible();
     await expect(page).toHaveURL(/\/knowledge-bases$/);
     expect(authCalls('/api/auth/login'), 'no new sign-in').toBe(loginsBefore);

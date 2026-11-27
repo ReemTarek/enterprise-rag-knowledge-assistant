@@ -8,17 +8,11 @@
 import { Locator, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { uniqueEmail } from './support/users';
-import {
-  answerAnonymousRestoreLocally,
-  gotoSignedIn,
-  leaveEnglishForNextTest,
-  switchLanguage,
-  t,
-} from './support/ui';
+import { gotoSignedIn, leaveEnglishForNextTest, switchLanguage, t } from './support/ui';
 
 /**
  * True when the user text gets its own direction from its content: the element holding it, or an ancestor up to its
- * cell/heading, is a `bdi`, has a `dir` attribute, or uses `unicode-bidi: plaintext`. (Table cells and headings are
+ * cell/heading, is a `bdi`, has `dir="ltr"` or `dir="auto"`, or uses `unicode-bidi: plaintext`. (Table cells and headings are
  * already `unicode-bidi: isolate` in the UA stylesheet, but they inherit the RTL base direction, which is what moves a
  * trailing ">" of a Latin name to the wrong end; so plain `isolate` is not enough.)
  */
@@ -27,7 +21,7 @@ function isBidiIsolated(text: Locator): Promise<boolean> {
     for (let node: Element | null = el; node; node = node.parentElement) {
       if (
         node.tagName === 'BDI' ||
-        node.hasAttribute('dir') ||
+        ['ltr', 'auto'].includes(node.getAttribute('dir') ?? '') ||
         getComputedStyle(node).unicodeBidi === 'plaintext'
       )
         return true;
@@ -60,7 +54,6 @@ function clippedControls(page: Page): Promise<string[]> {
 
 test.describe('i18n and RTL', () => {
   test('Arabic_SetsLangAndRtl_AndPersistsAcrossReload', async ({ page }) => {
-    await answerAnonymousRestoreLocally(page);
     await page.goto('/login');
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
@@ -79,7 +72,7 @@ test.describe('i18n and RTL', () => {
   });
 
   test('German_LongLabels_AreNotClipped_InToolbarNavAndButtons', async ({ adminPage: page }) => {
-    await gotoSignedIn(page, '/admin/users', test.info());
+    await gotoSignedIn(page, '/admin/users');
     await expect(
       page.getByRole('heading', { level: 1, name: t('en', 'admin.users.title') }),
     ).toBeVisible();
@@ -116,7 +109,7 @@ test.describe('i18n and RTL', () => {
     const kb = await kbFactory.create(adminApi, 'Bidi KB <i>x</i> >');
     await adminApi.addMember(kb.id, member.id, 'Viewer');
 
-    await gotoSignedIn(page, `/knowledge-bases/${kb.id}`, test.info());
+    await gotoSignedIn(page, `/knowledge-bases/${kb.id}`);
     await expect(page.getByRole('heading', { level: 1, name: kb.name })).toBeVisible();
     await switchLanguage(page, 'en', 'ar');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -143,7 +136,6 @@ test.describe('i18n and RTL', () => {
   });
 
   test('D5_Arabic_LoginEmailInput_RunsLeftToRight', async ({ page }) => {
-    await answerAnonymousRestoreLocally(page);
     await page.goto('/login');
     await switchLanguage(page, 'en', 'ar');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -158,7 +150,7 @@ test.describe('i18n and RTL', () => {
   });
 
   test('D5_Arabic_CreateUserEmailInput_RunsLeftToRight', async ({ adminPage: page }) => {
-    await gotoSignedIn(page, '/admin/users', test.info());
+    await gotoSignedIn(page, '/admin/users');
     await switchLanguage(page, 'en', 'ar');
     await page.getByRole('button', { name: t('ar', 'admin.users.new') }).click();
     const dialog = page.getByRole('dialog', { name: t('ar', 'admin.users.create.title') });
@@ -177,7 +169,7 @@ test.describe('i18n and RTL', () => {
     test(`CompactMenu_OpensInsideViewport_AndNavigates_${lang} @mobile`, async ({
       adminPage: page,
     }) => {
-      await gotoSignedIn(page, '/knowledge-bases', test.info());
+      await gotoSignedIn(page, '/knowledge-bases');
       await expect(
         page.getByRole('heading', { level: 1, name: t('en', 'kb.title') }),
       ).toBeVisible();

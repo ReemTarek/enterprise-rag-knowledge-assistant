@@ -26,12 +26,15 @@ async function signOut(page: Page): Promise<void> {
   expect((await logout).status()).toBe(204);
 }
 
+/** Same-origin API calls only (path starts with /api/), never app chunks or assets. */
+const isApi = (url: URL) => url.pathname.startsWith('/api/');
+
 const kbHeading = (page: Page) =>
   page.getByRole('heading', { level: 1, name: t('en', 'kb.title') });
 
 test.describe('session', () => {
   test('Reload_RestoresSession_WithoutEverShowingLogin', async ({ adminPage: page }) => {
-    await gotoSignedIn(page, '/knowledge-bases', test.info());
+    await gotoSignedIn(page, '/knowledge-bases');
     await expect(kbHeading(page)).toBeVisible();
     // Also catch a login form that is rendered without a URL change (e.g. a flash before the redirect back).
     await page.addInitScript(() => {
@@ -41,13 +44,13 @@ test.describe('session', () => {
       }).observe(document, { childList: true, subtree: true });
     });
 
-    let loginUrls: string[] = [];
+    const loginUrls: string[] = [];
     page.on('framenavigated', (frame) => {
       if (frame === page.mainFrame() && new URL(frame.url()).pathname === '/login')
         loginUrls.push(frame.url());
     });
-    const retries = await reloadSignedIn(page, test.info());
-    if (retries > 0) loginUrls = []; // a rate-limited attempt (429) is not what this test is about
+    loginUrls.length = 0; // only the reload under test counts
+    await reloadSignedIn(page);
 
     await expect(kbHeading(page)).toBeVisible();
     await expect(page).toHaveURL(/\/knowledge-bases$/);
@@ -65,7 +68,7 @@ test.describe('session', () => {
     const refresh = page.waitForResponse(
       (r) => new URL(r.url()).pathname === '/api/auth/refresh' && r.status() === 200,
     );
-    await gotoSignedIn(page, '/knowledge-bases', test.info());
+    await gotoSignedIn(page, '/knowledge-bases');
     const accessToken = ((await (await refresh).json()) as { accessToken: string }).accessToken;
     await expect(kbHeading(page)).toBeVisible();
 
@@ -102,7 +105,7 @@ test.describe('session', () => {
   test('SignOut_GoesToLogin_RemovesCookie_AndReloadStaysSignedOut', async ({ newUser, asUser }) => {
     const user = await newUser();
     const page = await asUser(user);
-    await gotoSignedIn(page, '/knowledge-bases', test.info());
+    await gotoSignedIn(page, '/knowledge-bases');
     await expect(kbHeading(page)).toBeVisible();
 
     await signOut(page);
@@ -138,7 +141,7 @@ test.describe('session', () => {
     const refreshA = pageA.waitForResponse(
       (r) => new URL(r.url()).pathname === '/api/auth/refresh' && r.status() === 200,
     );
-    await gotoSignedIn(pageA, '/knowledge-bases', test.info());
+    await gotoSignedIn(pageA, '/knowledge-bases');
     await expect(kbHeading(pageA)).toBeVisible();
     const tokenA = ((await (await refreshA).json()) as { accessToken: string }).accessToken;
 
@@ -147,7 +150,7 @@ test.describe('session', () => {
     const refreshB = pageB.waitForResponse(
       (r) => new URL(r.url()).pathname === '/api/auth/refresh' && r.status() === 200,
     );
-    await gotoSignedIn(pageB, '/knowledge-bases', test.info());
+    await gotoSignedIn(pageB, '/knowledge-bases');
     await expect(kbHeading(pageB)).toBeVisible();
     const tokenB = ((await (await refreshB).json()) as { accessToken: string }).accessToken;
     const loginInB = trackLoginNavigations(pageB);
@@ -188,11 +191,11 @@ test.describe('session', () => {
   test('D8_GatewayErrors_ShowNetworkMessage_KeepSession_AndRetryRecovers', async ({
     adminPage: page,
   }) => {
-    await gotoSignedIn(page, '/knowledge-bases', test.info());
+    await gotoSignedIn(page, '/knowledge-bases');
     await expect(kbHeading(page)).toBeVisible();
 
     // The API is down behind the proxy: every API call answers a bare 502 (no ProblemDetails), like the dev proxy.
-    await page.route('**/api/**', (route) => route.fulfill({ status: 502, body: '' }));
+    await page.route(isApi, (route) => route.fulfill({ status: 502, body: '' }));
     await page.getByRole('link', { name: t('en', 'nav.administration') }).click();
 
     await expect(page).toHaveURL(/\/admin\/users$/);
@@ -206,7 +209,7 @@ test.describe('session', () => {
     await expect(page.getByRole('button', { name: t('en', 'user.menu') })).toBeVisible();
     await expect(page.getByRole('link', { name: t('en', 'nav.administration') })).toBeVisible();
 
-    await page.unroute('**/api/**');
+    await page.unroute(isApi);
     await retry.click();
     await expect(
       page.getByRole('table', { name: t('en', 'admin.users.tableLabel') }),
@@ -216,15 +219,12 @@ test.describe('session', () => {
     ).toHaveCount(0);
   });
 
-  test('D8_ChangePassword_GatewayError_ShowsNetworkMessage', async ({ adminPage: page }) => {
-    // KNOWN APP GAP (reported by Task 3, not fixed here: no app changes in this task): change-password.ts maps
-    // every non-zero status other than 400/429 to errors.generic (`api.status !== 0`), so a proxy 502 shows
-    // "Something went wrong" instead of the network message. Remove fixme once the component uses the error type.
-    test.fixme(
-      true,
-      'change-password shows errors.generic for a gateway 502 (checks status !== 0, not the error type)',
-    );
-    await gotoSignedIn(page, '/settings', test.info());
+  // KNOWN APP GAP (reported by Task 3, not fixed here: no app changes in this task): change-password.ts maps every
+  // non-zero status other than 400/429 to errors.generic (`api.status !== 0`), so a proxy 502 shows "Something went
+  // wrong" instead of the network message. Declared as fixme (the test and its fixtures do not run); change it back to
+  // `test` once the component uses the error type.
+  test.fixme('D8_ChangePassword_GatewayError_ShowsNetworkMessage', async ({ adminPage: page }) => {
+    await gotoSignedIn(page, '/settings');
     await page.getByRole('link', { name: t('en', 'settings.changePassword') }).click();
     await expect(
       page.getByRole('heading', { name: t('en', 'changePassword.heading') }),

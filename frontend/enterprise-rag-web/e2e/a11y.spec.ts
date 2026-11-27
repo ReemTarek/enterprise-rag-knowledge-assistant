@@ -3,47 +3,14 @@
  * and Arabic, and the keyboard focus indicator (D2) while tabbing through the login page and the signed-in shell.
  * Serious/critical violations fail; moderate/minor ones are attached as test annotations (`axe-moderate`, ...) and
  * logged as `[axe] ...`. Signed-in screens use the admin chain (`adminPage`), navigating inside the app so one page
- * load (one refresh permit) covers all screens of a language; test data comes from the admin API (no login permit).
+ * load covers all screens of a language; test data comes from the admin API (no login permit).
  */
 import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { uniqueEmail } from './support/users';
-import {
-  Lang,
-  answerAnonymousRestoreLocally,
-  gotoSignedIn,
-  leaveEnglishForNextTest,
-  switchLanguage,
-  t,
-  waitForAnimations,
-} from './support/ui';
-
-async function expectNoSeriousViolations(page: Page, screen: string): Promise<void> {
-  await waitForAnimations(page);
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
-  const blocking = results.violations.filter(
-    (v) => v.impact === 'serious' || v.impact === 'critical',
-  );
-  for (const v of results.violations) {
-    const line = `${screen}: ${v.id} (${v.impact}, ${v.nodes.length} node(s)) ${v.help}`;
-    console.log(`[axe] ${line}`);
-    if (!blocking.includes(v))
-      test.info().annotations.push({ type: `axe-${v.impact ?? 'unknown'}`, description: line });
-  }
-  console.log(
-    `[axe] ${screen}: ${results.violations.length} violation(s), ${results.passes.length} rule(s) passed`,
-  );
-  expect
-    .soft(
-      blocking.map(
-        (v) =>
-          `${v.id} (${v.impact}): ${v.help} -> ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
-      ),
-      `${screen}: serious/critical axe violations`,
-    )
-    .toEqual([]);
-}
+import { expectNoSeriousViolations } from './support/axe';
+import { Lang, gotoSignedIn, leaveEnglishForNextTest, switchLanguage, t } from './support/ui';
 
 /** Describes the focused element and whether it shows a visible focus indicator (ring, shadow or thick field outline). */
 function focusedIndicator(page: Page) {
@@ -87,7 +54,6 @@ function focusedIndicator(page: Page) {
 test.describe('accessibility', () => {
   for (const lang of ['en', 'ar'] as const) {
     test(`Axe_Login_NoSeriousOrCriticalViolations_${lang}`, async ({ page }) => {
-      await answerAnonymousRestoreLocally(page);
       await page.goto('/login');
       await expect(page.getByRole('heading', { name: t('en', 'login.heading') })).toBeVisible();
       if (lang !== 'en') await switchLanguage(page, 'en', lang);
@@ -110,7 +76,7 @@ test.describe('accessibility', () => {
       await adminApi.addMember(kb.id, member.id, 'Editor');
       const l = (key: string, params?: Record<string, string>) => t(lang as Lang, key, params);
 
-      await gotoSignedIn(page, `/knowledge-bases/${kb.id}`, test.info());
+      await gotoSignedIn(page, `/knowledge-bases/${kb.id}`);
       await expect(page.getByRole('heading', { level: 1, name: kb.name })).toBeVisible();
       if (lang !== 'en') await switchLanguage(page, 'en', lang);
 
@@ -183,7 +149,7 @@ test.describe('accessibility', () => {
   }
 
   test('A11y1_Shell_AllContentInsideLandmarks', async ({ adminPage: page }) => {
-    await gotoSignedIn(page, '/knowledge-bases', test.info());
+    await gotoSignedIn(page, '/knowledge-bases');
     await expect(page.getByRole('heading', { level: 1, name: t('en', 'kb.title') })).toBeVisible();
 
     // The brand and toolbar sit in the banner landmark, the links in the labelled navigation, the page in main.
@@ -207,7 +173,6 @@ test.describe('accessibility', () => {
   });
 
   test('D2_Login_TabOrder_EveryFocusedControlShowsAFocusIndicator', async ({ page }) => {
-    await answerAnonymousRestoreLocally(page);
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: t('en', 'login.heading') })).toBeVisible();
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -238,7 +203,7 @@ test.describe('accessibility', () => {
     kbFactory,
   }) => {
     await kbFactory.create(adminApi, 'Focus KB'); // at least one row link
-    await gotoSignedIn(page, '/knowledge-bases', test.info());
+    await gotoSignedIn(page, '/knowledge-bases');
     await expect(page.getByRole('table', { name: t('en', 'kb.list.tableLabel') })).toBeVisible();
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 

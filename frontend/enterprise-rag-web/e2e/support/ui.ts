@@ -1,17 +1,15 @@
-import { Locator, Page, Response, TestInfo, expect } from '@playwright/test';
+import { Locator, Page, Response, expect, test } from '@playwright/test';
 import ar from '../../src/assets/i18n/ar.json';
 import de from '../../src/assets/i18n/de.json';
 import en from '../../src/assets/i18n/en.json';
 
 /**
  * Shared UI helpers for the specs: translated strings straight from the app's i18n files (so a test asserts what the
- * user sees in each language without hard-coding copies), language switching through the real switcher, and
- * rate-limit aware navigation/sign-in (see docs/FRONTEND.md "E2E tests": the API limits login + password change to
- * 10/min/IP and refresh + logout to 30/min/IP, shared by every worker).
+ * user sees in each language without hard-coding copies), language switching through the real switcher, UI sign-in
+ * and signed-in page loads that check the session restore.
  */
 
 export type Lang = 'en' | 'de' | 'ar';
-export const LANGS: readonly Lang[] = ['en', 'de', 'ar'];
 
 const dictionaries: Record<Lang, unknown> = { en, de, ar };
 
@@ -44,88 +42,50 @@ export async function leaveEnglishForNextTest(page: Page): Promise<void> {
   await page.evaluate(() => localStorage.setItem('lang', 'en'));
 }
 
-/**
- * Refresh budget: every full page load restores the session with `POST /api/auth/refresh`, which shares 30
- * permits/min/IP with the whole suite (and with back-to-back runs). Pure client-side tests of the ANONYMOUS login page
- * (language, direction, axe, keyboard) answer that one call locally with the same 401 the API gives a browser without a
- * cookie, so they do not spend permits; nothing else is stubbed. Do not use where the session itself is under test.
- */
-export async function answerAnonymousRestoreLocally(page: Page): Promise<void> {
-  await page.route('**/api/auth/refresh', (route) =>
-    route.fulfill({
-      status: 401,
-      contentType: 'application/problem+json',
-      body: JSON.stringify({ title: 'Unauthorized', status: 401 }),
-    }),
-  );
-}
-
 const isPost = (r: Response, path: string) =>
   r.request().method() === 'POST' && new URL(r.url()).pathname === path;
 
-/** Rate-limit backoff (not a UI wait): sleeps out the API's Retry-After, like e2e/support/api.ts does. */
-async function waitOutRateLimit(res: Response, testInfo: TestInfo, what: string): Promise<void> {
-  const retryAfter = Math.min(Number(res.headers()['retry-after'] ?? '5') || 5, 65);
-  testInfo.annotations.push({ type: 'rate-limit-wait', description: `${what}: ${retryAfter}s` });
-  console.log(`[e2e-budget] 429 on ${what}, waiting ${retryAfter}s`);
-  await new Promise((resolve) => setTimeout(resolve, (retryAfter + 1) * 1000));
-}
-
-const MAX_429_RETRIES = 3;
-
 /**
- * Fills and submits an auth form (sign-in or change password) through the UI and returns the API response. These
- * endpoints share the login bucket (10/min/IP) with every other client of the suite, so a 429 is waited out and the
- * form (which the app clears on failure) is filled and submitted again; any other status is returned to the test.
- * Each attempt is logged as `[e2e-budget] ui-login` (counted in the run report).
+ * Fills and submits an auth form (sign-in or change password) through the UI and returns the API response. Each submit
+ * is logged as `[e2e-budget] ui-login` and annotated on the test (counted in the run report). No 429 handling: the
+ * E2E API runs with raised rate limits (scripts/e2e-stack.mjs), so a 429 here is a real failure.
  */
 export async function submitAuthForm(
   page: Page,
-  testInfo: TestInfo,
   options: {
     path: '/api/auth/login' | '/api/auth/password';
     fill: () => Promise<void>;
     submit: Locator;
   },
 ): Promise<Response> {
-  for (let attempt = 0; ; attempt++) {
-    await options.fill();
-    const response = page.waitForResponse((r) => isPost(r, options.path));
-    await options.submit.click();
-    const res = await response;
-    testInfo.annotations.push({
-      type: 'ui-login',
-      description: `${options.path} -> ${res.status()}`,
-    });
-    console.log(`[e2e-budget] ui-login ${options.path} -> ${res.status()}`);
-    if (res.status() !== 429 || attempt >= MAX_429_RETRIES) return res;
-    await waitOutRateLimit(res, testInfo, options.path);
-  }
+  await options.fill();
+  const response = page.waitForResponse((r) => isPost(r, options.path));
+  await options.submit.click();
+  const res = await response;
+  test
+    .info()
+    .annotations.push({ type: 'ui-login', description: `${options.path} -> ${res.status()}` });
+  console.log(`[e2e-budget] ui-login ${options.path} -> ${res.status()}`);
+  return res;
 }
 
 /**
- * Loads a signed-in page. Every full load restores the session with `POST /api/auth/refresh` (30/min/IP, shared by
- * the suite); a 429 there would show the login page although the cookie is fine, so it is waited out and the load
- * repeated (the cookie is not rotated by a rejected request). Returns the number of such retries.
+ * Loads (or reloads) a signed-in page and checks that the session restore (`POST /api/auth/refresh`) succeeded, so a
+ * test fails with a clear message instead of finding itself on the login page.
  */
 export async function gotoSignedIn(
   page: Page,
   url: string,
-  testInfo: TestInfo,
   load: (p: Page) => Promise<unknown> = (p) => p.goto(url),
-): Promise<number> {
-  for (let attempt = 0; ; attempt++) {
-    const refresh = page.waitForResponse((r) => isPost(r, '/api/auth/refresh'));
-    await load(page);
-    const res = await refresh;
-    if (res.status() !== 429 || attempt >= MAX_429_RETRIES) return attempt;
-    await waitOutRateLimit(res, testInfo, '/api/auth/refresh');
-  }
+): Promise<void> {
+  const refresh = page.waitForResponse((r) => isPost(r, '/api/auth/refresh'));
+  await load(page);
+  expect((await refresh).status(), `session restore for ${url}`).toBe(200);
 }
 
 /** Same as `gotoSignedIn` for a reload of the current page. */
-export function reloadSignedIn(page: Page, testInfo: TestInfo): Promise<number> {
-  return gotoSignedIn(page, page.url(), testInfo, (p) => p.reload());
+export function reloadSignedIn(page: Page): Promise<void> {
+  return gotoSignedIn(page, page.url(), (p) => p.reload());
 }
 
 export interface Box {
@@ -138,11 +98,22 @@ export interface Box {
 export const intersects = (a: Box, b: Box): boolean =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
-/** Waits until no CSS animation/transition runs (dialog/menu open, ripples), so measurements and axe see the end state. */
+/**
+ * Waits until no finite CSS animation/transition runs (dialog/menu open, ripples), so measurements and axe see the end
+ * state. Infinite animations (spinners, indeterminate progress bars) are ignored: they never finish.
+ */
 export async function waitForAnimations(page: Page): Promise<void> {
   await expect
     .poll(() =>
-      page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length),
+      page.evaluate(
+        () =>
+          document
+            .getAnimations()
+            .filter(
+              (a) =>
+                a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity,
+            ).length,
+      ),
     )
     .toBe(0);
 }
