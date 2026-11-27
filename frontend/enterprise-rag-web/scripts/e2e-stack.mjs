@@ -257,6 +257,11 @@ function resolveCredentials(saPassword) {
 function migrate(connectionString) {
   log('dotnet tool restore');
   if (!run('dotnet', ['tool', 'restore']).ok) fail('dotnet tool restore failed.');
+  // `dotnet ef` reads project metadata BEFORE it builds, and that needs obj/project.assets.json: on a fresh clone (CI)
+  // it fails with NETSDK1004 unless the projects were restored first. Restoring the API restores Infrastructure too.
+  log('dotnet restore (API project and its references)');
+  if (!run('dotnet', ['restore', 'src/EnterpriseRag.API/EnterpriseRag.API.csproj']).ok)
+    fail('dotnet restore failed.');
   log('Applying migrations (dotnet ef database update, Release)...');
   const r = run(
     'dotnet',
