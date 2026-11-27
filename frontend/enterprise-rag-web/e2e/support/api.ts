@@ -201,6 +201,15 @@ export class ApiClient {
     );
   }
 
+  async members(kbId: string): Promise<KbMember[]> {
+    return this.json<KbMember[]>(
+      'GET',
+      `/api/knowledge-bases/${kbId}/members`,
+      200,
+      'list members',
+    );
+  }
+
   async removeMember(kbId: string, userId: string): Promise<void> {
     await this.expectStatus(
       'DELETE',

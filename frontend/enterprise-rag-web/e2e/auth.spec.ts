@@ -2,14 +2,16 @@
  * Sign-in and the forced password change, driven through the real UI against the real API.
  *
  * LOGIN BUDGET (docs/FRONTEND.md "E2E tests"). The API limits login + password change per client IP, and every client
- * of the suite shares one IP. Run-wide, a full run spends about 13 login-bucket permits: global setup 1, `adminApi` 1
+ * of the suite shares one IP. Run-wide, a full run spends about 30 login-bucket permits: global setup 1, `adminApi` 1
  * per worker (2 desktop + 1 mobile), the `adminPage` sign-in of every worker that does not take over the global-setup
- * state (desktop 1 + mobile 1), `newUser()` 2 each (2 in session.spec = 4) and the 3 UI submits of THIS file (a worker
- * replaced after a failure signs in again). That exceeds the production 10/min, so the E2E stack starts the API with
- * `RateLimit__LoginPermitsPerMinute=1000` / `RateLimit__RefreshPermitsPerMinute=3000` (scripts/e2e-stack.mjs;
+ * state (desktop 1 + mobile 1), `newUser()` 2 each (session 2, knowledge-bases 4, members 1, admin-users 2 = 18), the
+ * 2 API sign-ins of the admin-users reset test, the 1 UI submit of admin-users.spec and the 3 UI submits of THIS file
+ * (a worker replaced after a failure signs in again). That exceeds the production 10/min, so the E2E stack starts the
+ * API with `RateLimit__LoginPermitsPerMinute=1000` / `RateLimit__RefreshPermitsPerMinute=3000` (scripts/e2e-stack.mjs;
  * production keeps 10 and 30) and nothing here waits out a 429.
  *
- * This is the ONLY spec file that signs in through the UI, serially in ONE browser context shared by its tests:
+ * Apart from one first sign-in with a temporary password in admin-users.spec.ts, this is the only spec file that signs
+ * in through the UI, serially in ONE browser context shared by its tests:
  *   1. wrong password (401)             -> 1 login
  *   2. temporary password (forced flow) -> 1 login
  *   3. valid password change            -> 1 password change (login bucket)
