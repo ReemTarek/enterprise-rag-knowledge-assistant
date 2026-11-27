@@ -110,6 +110,23 @@ including architecture tests; Testcontainers uses the runner's Docker). No secre
 A second job, `frontend`, runs `npm ci`, `npm run lint`, `npm run test:ci` and `npm run build` in
 `frontend/enterprise-rag-web` on Node 24.x (Active LTS; Node 26 is used locally but is not LTS yet).
 
+A third job, `e2e` ("End-to-end (Playwright)", `needs: [build-test, frontend]`, 30-minute timeout), runs the full-stack
+Playwright suite: a SQL Server **service container** (`mcr.microsoft.com/mssql/server`, the same tag as
+`docker-compose.yml`, port 1433, `sqlcmd` health check) -> `node scripts/e2e-stack.mjs --ci` (migrations into a fresh
+`EnterpriseRagE2e` database, API in Release on `127.0.0.1:5180` with `RateLimit__LoginPermitsPerMinute=1000` /
+`RateLimit__RefreshPermitsPerMinute=3000` - E2E only, production keeps 10/30) -> readiness wait (max 180 s) ->
+`npm run e2e` -> HTML report, traces/screenshots and the stack log uploaded as artifacts (7 days). The database is fresh
+per run because the service container is ephemeral. Details and how to reproduce a CI failure: `docs/FRONTEND.md`
+"E2E tests".
+
+Secrets in the `e2e` job: still no repository secrets. The JWT signing key and the E2E admin passwords are generated per
+run (`openssl rand`, `e2e-stack`) and masked with `::add-mask::` before anything could print them. The SA password is
+the exception, on purpose: GitHub service containers start before any step and cannot read step outputs or
+`$GITHUB_ENV`, so a value generated in a step cannot reach `MSSQL_SA_PASSWORD`. The workflow therefore defines a
+**CI-only throwaway** derived from the run id (`E2e-<run_id>-Strong!1`, different per run, masked in the first step).
+It is not a secret worth protecting: the container exists only for that job on that runner, is not reachable from
+outside, and holds only generated test data. Never reuse that pattern for a real server.
+
 ## Frontend (dev)
 
 Prerequisites: Node >= 22.22.3 (24 or 26 also fine) and npm 11. From `frontend/enterprise-rag-web`:

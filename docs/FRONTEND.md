@@ -166,8 +166,8 @@ server with the same-origin proxy. Nothing is mocked for the main flows; test da
    missing, it creates one with a random `MSSQL_SA_PASSWORD` - delete it after `docker compose down -v`; if a SQL Server
    already runs and neither `.env` nor `Database__ConnectionString` gives its credentials, the script stops and says how
    to provide them) and waits for `healthy`; runs
-   `dotnet tool restore` and `dotnet ef database update` (Release) against a dedicated database **`EnterpriseRagE2e`**
-   (so your `EnterpriseRag` dev data is never touched); generates a JWT signing key and the E2E admin credentials;
+   `dotnet tool restore`, `dotnet restore` (API project) and `dotnet ef database update` (Release) against a dedicated
+   database **`EnterpriseRagE2e`** (so your `EnterpriseRag` dev data is never touched); generates a JWT signing key and the E2E admin credentials;
    builds and starts the API (`dotnet run -c Release --no-launch-profile` in `src/EnterpriseRag.API`,
    `http://127.0.0.1:5180`, seed admin = the E2E admin); waits for `/health/ready` and prints `stack ready`. Ctrl+C stops
    the API (the SQL container keeps running). Options: `--down` (also `docker compose down` on exit, volume kept),
@@ -234,6 +234,29 @@ network log of the anonymous session-restore refresh. Tag tests that must run at
 (`npx playwright show-trace test-results/<test>/trace.zip`); `npm run e2e:report` opens the HTML report
 (`playwright-report/`). `playwright-report/`, `test-results/` and `e2e/.auth/` are git-ignored; traces of UI sign-in
 tests contain the generated per-run passwords of throwaway users.
+
+**CI job `e2e` ("End-to-end (Playwright)", `.github/workflows/ci.yml`).** Runs after `build-test` and `frontend`
+succeed, on `ubuntu-latest`, 30-minute timeout: a SQL Server service container (same image tag as `docker-compose.yml`,
+health-checked with `sqlcmd`) -> `node scripts/e2e-stack.mjs --ci` in the background (migrations, API in Release with
+the raised E2E rate limits, generated admin credentials in `e2e/.auth/stack.env.json`) -> wait up to 180 s for
+`stack ready` and `/health/ready` 200 (on timeout the last 100 lines of the stack log are printed) -> `npm run e2e` with
+`CI=true` (retries 1, `forbidOnly`, Playwright starts `npm start` itself) -> stop the stack. The database is **fresh on
+every CI run** (the service container is ephemeral), so users and knowledge bases never accumulate there. The JWT key is
+generated with `openssl rand` and masked; the admin passwords are masked (`::add-mask::`) as soon as the file exists;
+nothing prints them. Chromium is cached (`~/.cache/ms-playwright`, keyed on the locked `@playwright/test` version).
+
+Artifacts (always uploaded, kept 7 days, on the run's summary page): `playwright-report` (HTML report: download, unzip,
+`npx playwright show-report <folder>`), `playwright-test-results` (traces and screenshots of failed tests:
+`npx playwright show-trace <test>/trace.zip`) and `e2e-stack-log` (migrations and API output).
+
+**Reproducing a CI failure locally.** First rerun the same spec on a fresh database: `npm run e2e:stack -- --fresh`
+(deletes the Compose SQL volume, see above), then `CI=true npm run e2e -- e2e/<file>.spec.ts` (CI mode = retries 1,
+no dev-server reuse - stop your own `npm start`). If it passes on Windows but fails in CI, reproduce on Linux with Node
+24 and the CI flow: start SQL (`docker compose up -d sqlserver`), copy the repository into a container file system
+(bind mounts are very slow on Docker Desktop), e.g. `docker run -it mcr.microsoft.com/playwright:v<locked version>-noble bash` (Node and Chromium with its OS
+dependencies), install the .NET SDK from `global.json` inside it, export `E2E_SQL_HOST=host.docker.internal` and
+`Database__ConnectionString` for `host.docker.internal,1433` / `EnterpriseRagE2e` (SA password from `.env`), run
+`node scripts/e2e-stack.mjs --ci &` and `CI=true npm run e2e`.
 
 ## Bundle and budget
 Production build (final-review fix wave): initial 547.61 kB raw / 132.31 kB transfer (main 539.57 kB + styles
@@ -314,7 +337,12 @@ so pass it by hand (`-H "Cookie: refresh_token=..."`).
 - Arabic and German translations were not reviewed by native speakers; the Material menu in RTL was not visually verified.
 - `Retry-After` on 429 is not surfaced (generic message).
 - Users cannot leave a knowledge base and admins cannot assign an owner (no server endpoints; planned with Phase 3).
-- UI click-through in a real browser has **not** been performed by the author (see checklist below).
+- The UI click-through is automated by the E2E suite (real Chromium, en/de/ar); screen-reader speech itself is only
+  approximated (axe scans and accessible-name locators). The manual checklist below stays for visual review.
+- D6 (deferred): pressing browser Back while the one-time temporary-password dialog is open changes the route behind
+  it; the dialog stays open on purpose (`closeOnNavigation: false`), so the password cannot be lost unseen. Harmless.
+- Change-password shows the generic message (not the network one) when a gateway answers 502/503/504 without a
+  ProblemDetails body; documented by the `test.fixme` `D8_ChangePassword_GatewayError_ShowsNetworkMessage`.
 - The deferred per-task review items are listed in `docs/PROJECT_PROGRESS.md`.
 
 ## User manual checklist (visual verification)

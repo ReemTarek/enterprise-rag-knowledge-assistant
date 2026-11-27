@@ -1,10 +1,40 @@
 # Project Progress
 
 ## Current phase
-Phase 2b (Angular client shell) is complete on branch `phase-2b-angular-shell`; the final branch review is done and its
-fix wave is applied. **Pending merge approval.** Remaining gates: the user confirms the UI click-through checklist in
-`docs/FRONTEND.md`, and the first CI run on GitHub (backend + frontend jobs) passes. NOT merged to main. Phase 2a
-(backend, 401 tests) is merged on main; Phase 1 was completed earlier.
+Phase 2b (Angular client shell) is complete on branch `phase-2b-angular-shell`, including the Phase 2b hardening
+(real-browser defects fixed, full-stack Playwright E2E suite, CI `e2e` job; plan
+`docs/superpowers/plans/2026-11-27-phase2b-e2e-and-ui-fixes.md`). **Pending merge approval.** CI on GitHub runs
+three jobs (`build-test`, `frontend`, `e2e`); see "Phase 2b hardening" below for the green run. NOT merged to main.
+Phase 2a (backend) is merged on main; Phase 1 was completed earlier.
+
+### Phase 2b hardening (2026-11-27)
+- Commits: 5c8e63c fix(web): ui defects; bcf0554 / e25f0af E2E harness; 285e7c7 / 6ed5f75 auth, session, i18n/RTL and
+  a11y specs; 75a2566 feat(api): configurable auth rate limits; 533c45f / 204505a knowledge base, membership and admin
+  specs; 84ddf31 ci: full-stack playwright e2e job; a630dd4 fix(e2e): restore before `dotnet ef` (fresh-clone/CI
+  failure); docs: e2e strategy and phase 2b hardening.
+- Defects from the real-browser verification fixed, each with a unit test and an E2E regression test: D1 change-password
+  hint overlapping the confirm field; D2 faint/missing focus ring; D3 member role select without accessible name; D4
+  Latin names/emails not bidi-isolated in Arabic; D5 email inputs RTL in Arabic; D7 sign-out not ending other tabs
+  (`BroadcastChannel('erag-auth')`, message carries no secret); D8 gateway 502/503/504 without ProblemDetails shown as
+  "Something went wrong" (now the network/unreachable message); A11y-1 toolbar outside a landmark.
+- **D6 deferred** (browser Back while the temporary-password dialog is open changes the page behind it; the dialog stays
+  by design, harmless) - documented in FRONTEND.md "Known limitations".
+- **Known gap:** change-password still shows the generic message for a gateway 502 without body (the page picks the
+  network message by `status !== 0`); covered by `D8_ChangePassword_GatewayError_ShowsNetworkMessage` as `test.fixme`.
+- Configurable auth rate limits (`RateLimit:LoginPermitsPerMinute` default 10, `RateLimit:RefreshPermitsPerMinute`
+  default 30, validated; production behaviour unchanged); only the E2E stack raises them (1000/3000) because every client
+  of the suite shares one IP.
+- E2E suite (`frontend/enterprise-rag-web/e2e`, `@playwright/test` + `@axe-core/playwright`): 56 tests in 8 files
+  (smoke 5, auth 7, session 6, i18n-rtl 7, a11y 7, knowledge-bases 9, members 7, admin-users 8); 55 run + 1 fixme.
+  Local runs: 55 passed / 1 skipped in about 57 s (2 workers).
+- CI: new job `e2e` ("End-to-end (Playwright)") after `build-test` and `frontend`: SQL Server service container,
+  `e2e-stack --ci`, readiness wait, `npm run e2e`, artifacts (report, traces, stack log; 7 days); fresh database per
+  run; no repository secrets (generated + masked; SA password is a CI-only throwaway, see INFRASTRUCTURE.md).
+- CI runs: https://github.com/ReemTarek/enterprise-rag-knowledge-assistant/actions/runs/46033634808 (84ddf31): e2e failed
+  before the suite - `dotnet ef` NETSDK1004 on a fresh clone (no restore), reproduced locally and fixed in a630dd4;
+  https://github.com/ReemTarek/enterprise-rag-knowledge-assistant/actions/runs/46034213586 (a630dd4): build-test,
+  frontend and e2e all **success** (e2e job 3 min 20 s: stack ready after ~43 s, suite 77 s, no failed or retried test -
+  the test-results artifact stayed empty).
 
 ### Phase 2b (branch `phase-2b-angular-shell`, `git log --oneline main..HEAD`)
 - 99e9794 docs: Phase 2b implementation plan
@@ -168,8 +198,8 @@ Earlier verification (f58691b): 362 tests (Domain 16, Application 90, Architectu
 - Migrations: src/EnterpriseRag.Infrastructure/Persistence/Migrations
 
 ## Pending work
-- Phase 2b merge approval (final review and its fix wave are done; Phase 2a is merged). Gates: the user confirms the
-  UI click-through checklist in docs/FRONTEND.md; the first CI run on GitHub passes.
+- Phase 2b merge approval (final review, its fix wave and the hardening plan are done; CI green with backend, frontend
+  and e2e jobs; Phase 2a is merged). Gate: the user's merge decision.
 - First task of Phase 3 (before any non-dev deployment): self-host fonts and remove the inline loader script (ADR 0005
   "Decision recorded").
 
@@ -183,7 +213,8 @@ Plan items for Phase 2b/3 (from the final review):
 
 ## Known issues
 Phase 2b (client; deferred minor findings from per-task reviews, grouped by task):
-- Overall: the CI `frontend` job has not run on GitHub; UI click-through not performed (user to confirm); Arabic and
+- Overall: the UI click-through is now automated by the E2E suite (screen-reader speech is approximated by axe and
+  accessible-name locators, not verified); D6 deferred and the change-password 502 message gap (`test.fixme`); Arabic and
   German texts have no native-speaker review; `Retry-After` is not surfaced (generic 429 text); leaving a knowledge base
   and admin assign-owner do not exist server-side (I6, M9 above; plan with Phase 3); CSP not applied and fonts still
   from Google (decided: self-host as the first Phase 3 task); sign-out while the API is unreachable leaves the refresh
@@ -215,7 +246,8 @@ Phase 2b (client; deferred minor findings from per-task reviews, grouped by task
   re-announced.
 
 Environment:
-- CI has not run on GitHub yet (backend and frontend jobs); SDK 11.0.100 resolution via setup-dotnet is unverified.
+- CI runs on GitHub (backend, frontend and e2e jobs green); GitHub warns that actions/*@v4 target the deprecated Node 20
+  runtime (forced to Node 24) - bump the action versions in a later chore.
 - Some package versions are pinned lower than latest because of the earlier Smart App Control block (now disabled).
 - docs/INFRASTRUCTURE.md shows the database password inline in example commands.
 
@@ -258,9 +290,10 @@ Deferred Phase 2a findings (from per-task reviews; items fixed in the final wave
   takes about 3.3 minutes.
 
 ## Failing tests/outstanding validation
-- None failing. Not yet validated: CI on GitHub; the UI in a real browser; embedding model choice (Phase 4).
+- None failing (one `test.fixme` E2E test documents the change-password 502 gap). Not yet validated: embedding model
+  choice (Phase 4); native-speaker review of Arabic/German.
 
 ## Next task
-1. Phase 2b: user confirms the UI checklist, first CI run passes, merge decision.
+1. Phase 2b: merge decision.
 2. Phase 3 plan: first task self-hosted fonts / no inline loader script (ADR 0005); then documents - upload, S3/local
    storage, versions, lifecycle + UI (include leave-KB and admin assign-owner).

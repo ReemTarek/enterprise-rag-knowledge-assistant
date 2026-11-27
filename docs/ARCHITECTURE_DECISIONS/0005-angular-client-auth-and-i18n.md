@@ -65,3 +65,27 @@ Phase 3 and must be done before any non-dev deployment**; it is not implemented 
 `docs/FRONTEND.md`.
 - Authorization stays on the server; client guards (`adminGuard`, `mustChangeGuard`) are usability only.
 - No native-speaker review of Arabic and German has been done.
+
+## E2E strategy (Phase 2b hardening)
+- **Full-stack Playwright, not a mocked UI.** `@playwright/test` (Chromium desktop + a Pixel 7 project for `@mobile`
+  specs) drives the real chain: SQL Server -> migrated database -> API in Release -> Angular dev server with the
+  same-origin proxy. Network interception (`page.route`) is used only to simulate an unreachable API/gateway (D8).
+  Accessibility is checked with `@axe-core/playwright` (serious/critical violations fail). Reason: the defects found by
+  the real-browser verification (layout, focus, bidi, cross-tab logout, proxy errors) live between the client, the
+  cookie/refresh protocol and the server, where unit tests with mocks cannot see them.
+- **Test data only through the public API.** Global setup signs in the seeded admin and performs the forced password
+  change through the API; fixtures create users (temporary password changed via the API) and knowledge bases with
+  per-run/per-worker unique names. Nothing writes to the database directly, so the suite also exercises the API
+  contract and needs no knowledge of the schema.
+- **Per-worker admin session chain.** The refresh cookie rotates on every use and reuse revokes the session family, so
+  a saved `storageState` can only be continued by one chain of contexts: the first worker takes over the global-setup
+  state, other workers sign in once, and the rotated state is carried from test to test. Tests that sign out or change
+  passwords use their own users.
+- **Raised auth rate limits only in E2E.** All clients of the suite share one IP, so the per-IP limits (login 10/min,
+  refresh 30/min) were made configurable (`RateLimit:*`, validated; defaults unchanged) and `e2e-stack` sets 1000/3000
+  for the API it starts. Production and the API integration tests keep the defaults.
+- **Fresh database per CI run.** The CI job uses an ephemeral SQL Server service container (see
+  `docs/INFRASTRUCTURE.md`), so runs are independent; locally a dedicated `EnterpriseRagE2e` database keeps the
+  developer's data untouched, and specs never rely on an empty database.
+- Consequences: the suite needs Docker (local) and takes about a minute locally (2 workers); retries are capped at 1 in
+  CI and flakes are fixed rather than hidden; one known gap is a `test.fixme` (change-password 502 message).
