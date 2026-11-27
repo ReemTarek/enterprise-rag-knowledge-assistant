@@ -105,4 +105,14 @@ describe('UserPicker', () => {
     const isolated = Array.from(first.querySelectorAll('bdi')).map((b) => b.textContent!.trim());
     expect(isolated).toEqual(['Ada Lovelace', 'ada@example.com']);
   });
+
+  // The hint is long (German wraps to two lines): with dynamic subscript sizing the field grows to fit it instead of
+  // drawing the second line over whatever follows the picker.
+  it('UserPicker_HintField_UsesDynamicSubscriptSizing', async () => {
+    await setup();
+    const field = (f.nativeElement as HTMLElement).querySelector('mat-form-field')!;
+    expect(field.querySelector('mat-hint')).not.toBeNull();
+    const subscript = field.querySelector('.mat-mdc-form-field-subscript-wrapper')!;
+    expect(subscript.classList).toContain('mat-mdc-form-field-subscript-dynamic-size');
+  });
 });

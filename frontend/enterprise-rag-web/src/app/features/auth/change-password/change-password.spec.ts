@@ -143,6 +143,37 @@ describe('ChangePasswordComponent', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  // A reverse/dev proxy answering for an unreachable API sends a 502/503/504 without ProblemDetails; the interceptor
+  // types it as a network error, and the forced change-password screen must say so (not "Something went wrong").
+  it.each([502, 503, 504])(
+    'ChangePasswordComponent_Gateway%sWithoutProblem_ShowsNetworkMessage',
+    async (status) => {
+      const f = await setup(true);
+      await fill(f, 'Old-Password-1', 'New-Password-123', 'New-Password-123');
+      await submit(f);
+      ctrl.expectOne('/api/auth/password').flush('', { status, statusText: 'Bad Gateway' });
+      await f.whenStable();
+      const alert = el(f).querySelector('[role=alert]')!;
+      expect(alert.textContent).toContain('Cannot reach the server');
+      expect(alert.textContent).not.toContain('Something went wrong');
+      expect(navigate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ChangePasswordComponent_Server500_ShowsGenericMessage', async () => {
+    const f = await setup(false);
+    await fill(f, 'Old-Password-1', 'New-Password-123', 'New-Password-123');
+    await submit(f);
+    ctrl
+      .expectOne('/api/auth/password')
+      .flush(problem(500, 'https://enterprise-rag.local/problems/internal-error'), {
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+    await f.whenStable();
+    expect(el(f).querySelector('[role=alert]')!.textContent).toContain('Something went wrong');
+  });
+
   it('ChangePasswordComponent_ShowsBanner_WhenRequired', async () => {
     const f = await setup(true);
     expect(el(f).querySelector('[data-testid=must-change-banner]')).not.toBeNull();

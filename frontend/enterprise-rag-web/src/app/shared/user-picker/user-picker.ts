@@ -33,7 +33,7 @@ export const USER_SEARCH_MAX_CHARS = 100;
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <mat-form-field class="field">
+    <mat-form-field class="field" subscriptSizing="dynamic">
       <mat-label>{{ 'userPicker.label' | transloco }}</mat-label>
       <input
         matInput

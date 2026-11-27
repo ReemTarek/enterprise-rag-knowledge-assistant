@@ -219,11 +219,7 @@ test.describe('session', () => {
     ).toHaveCount(0);
   });
 
-  // KNOWN APP GAP (reported by Task 3, not fixed here: no app changes in this task): change-password.ts maps every
-  // non-zero status other than 400/429 to errors.generic (`api.status !== 0`), so a proxy 502 shows "Something went
-  // wrong" instead of the network message. Declared as fixme (the test and its fixtures do not run); change it back to
-  // `test` once the component uses the error type.
-  test.fixme('D8_ChangePassword_GatewayError_ShowsNetworkMessage', async ({ adminPage: page }) => {
+  test('D8_ChangePassword_GatewayError_ShowsNetworkMessage', async ({ adminPage: page }) => {
     await gotoSignedIn(page, '/settings');
     await page.getByRole('link', { name: t('en', 'settings.changePassword') }).click();
     await expect(

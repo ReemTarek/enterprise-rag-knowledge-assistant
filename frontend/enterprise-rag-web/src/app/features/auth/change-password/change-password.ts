@@ -23,6 +23,7 @@ import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ApiError } from '../../../core/api/api-error';
+import { messageKeyFor } from '../../../core/api/error-message';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { sanitizeReturnUrl } from '../../../core/navigation/safe-return-url';
@@ -125,7 +126,8 @@ export class ChangePassword {
       this.errorKey.set('changePassword.error.rejected');
       this.correlationId.set(api.correlationId);
     } else {
-      this.errorKey.set(api && api.status !== 0 ? 'errors.generic' : 'errors.network');
+      // The network type covers status 0 and gateway 502/503/504 without ProblemDetails (see toApiError).
+      this.errorKey.set(api ? messageKeyFor(api) : 'errors.network');
       this.correlationId.set(api?.correlationId);
     }
     afterNextRender(() => this.banner()?.focus(), { injector: this.injector });
